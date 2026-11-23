@@ -43,7 +43,8 @@ export async function listOffers(query: OfferQuery, userId?: string) {
         },
       ],
     }),
-    ...(query.saved && userId && { savedBy: { some: { userId } } }),
+    // Signed-out visitors have no saved offers (empty result, not "everything").
+    ...(query.saved && (userId ? { savedBy: { some: { userId } } } : { id: { in: [] } })),
   };
   const offers = await db.offer.findMany({
     where,

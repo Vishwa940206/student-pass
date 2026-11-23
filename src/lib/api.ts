@@ -1,4 +1,5 @@
 import "server-only";
+import { unstable_rethrow } from "next/navigation";
 import { z } from "zod";
 import { AuthError } from "@/lib/auth/session";
 import { PosError } from "@/lib/pos/service";
@@ -37,6 +38,8 @@ export function handler<C>(fn: (req: Request, ctx: C) => Promise<Response>) {
       }
       return await fn(req, ctx);
     } catch (e) {
+      // Let Next.js internals through (e.g. "stop prerendering here" when cookies() is read).
+      unstable_rethrow(e);
       if (e instanceof ApiError) return json(errorBody(e.code, e.message), e.status);
       if (e instanceof PosError) return json(errorBody(e.code, e.message), e.status);
       if (e instanceof AuthError) {

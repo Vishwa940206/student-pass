@@ -1,9 +1,11 @@
 import { db } from "@/lib/db";
 import { handler, json } from "@/lib/api";
-import { requireUser } from "@/lib/auth/session";
+import { getCurrentUser } from "@/lib/auth/session";
 
 export const GET = handler(async () => {
-  const user = await requireUser();
+  // Signed-out is a normal state here, not an error: { user: null }.
+  const user = await getCurrentUser();
+  if (!user) return json({ user: null, student: null });
   const student = await db.studentProfile.findUnique({
     where: { userId: user.id },
     select: {

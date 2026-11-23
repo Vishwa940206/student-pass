@@ -8,6 +8,21 @@ The design reference is the single-file prototype (`student-pass.html`). This re
 
 Next.js 16 (App Router, TypeScript) · PostgreSQL · Prisma 7 (`@prisma/adapter-pg`) · Zod · Vitest
 
+## Screens
+
+| Path | Who | What |
+|---|---|---|
+| `/` | everyone | Home |
+| `/offers` | everyone | Search, category, channel, district and saved filters; offer details |
+| `/signup`, `/login` | students | Institution picker; new accounts start as *pending* |
+| `/pass` | students | Live rotating QR (30 s ring), full-screen scan, freeze, card colour, sponsored perks, savings |
+| `/pos` | merchant staff | Branch, bill amount, scan (camera via BarcodeDetector) or paste QR, apply / complete / cancel, ledger with refunds |
+| `/admin` | admins | Verification queue |
+
+The UI reuses the prototype's stylesheet unchanged (`src/styles/prototype.css`) and its icon sprite (`src/components/Sprite.tsx`). Pages are static shells, and interactive parts call `/api/v1` from the browser, the same API the mobile apps will use.
+
+**Try the whole flow:** sign in as `nethmi@example.com` in one browser window and open My Pass. In a private window, sign in as `cashier@sandbox-cafe.example`. In development, **Copy code** on the pass copies the live QR content so you can paste it into the POS.
+
 ## Getting started
 
 ```bash
@@ -35,6 +50,24 @@ For local dev, set `DATABASE_URL="postgresql://postgres:postgres@localhost:54329
 | admin@studentpass.example | Admin | — |
 
 "Sandbox Café" is a fictional merchant for testing. The real-brand categories from the prototype are seeded as `PROSPECT`: browsable, but not redeemable until their terms are confirmed.
+
+## Using Supabase (hosted Postgres)
+
+Supabase is used **as the PostgreSQL database only**. Auth, sessions and the API stay in this app. No code changes are needed, only configuration:
+
+1. Create a project at supabase.com. Mumbai (`ap-south-1`) is the closest region to Sri Lanka. Save the database password.
+2. **Project Settings → Database → SSL Configuration → Download certificate.** Save it as `prisma/certs/supabase-ca.crt` (it's a public certificate, safe to commit).
+3. In `.env`, set `DATABASE_URL` (transaction pooler, port 6543) and `DIRECT_URL` (session pooler, port 5432) from **Connect**, using the format in `.env.example`.
+4. Create the tables, then load the seed data:
+   ```bash
+   pnpm exec prisma migrate deploy
+   pnpm db:seed          # dev/demo data only; skip for production
+   ```
+
+Notes:
+- Keep `sslmode=verify-full&sslrootcert=…`. Plain `sslmode=require` fails with "self-signed certificate", because Supabase uses its own CA.
+- **Row Level Security** is enabled on every table (migration `enable_row_level_security`). With no policies, Supabase's public Data API can't read anything, while the app (connecting as the table owner) works normally. **Every new table needs `ENABLE ROW LEVEL SECURITY` in its migration.**
+- The POS relies on transactions and row locks, which work through the transaction pooler (6543).
 
 ## Tests
 
@@ -91,7 +124,7 @@ scripts/smoke.sh            API scenarios
 
 ## Next up
 
-1. Port the prototype's design system and build the UI pages: offers, My Pass (live QR), sign-up, and the POS screen.
-2. Real student verification (institution roster / document upload) to replace the manual admin approval.
-3. Rate limiting on login and signup, email verification, password reset.
+1. Real student verification (institution roster / document upload) to replace the manual admin approval.
+2. Rate limiting on login and signup, email verification, password reset.
+3. Language switch (EN / සිං / தமிழ்), as in the prototype.
 4. Deploy: hosted Postgres + Vercel/Railway, with secrets in the host's secret store.
