@@ -15,7 +15,7 @@ export function Footer() {
           <div><b className="foot-h">Students</b><Link href="/offers">Student offers</Link><Link href="/pass">My Pass</Link><Link href="/signup">Get Student Pass</Link></div>
           <div><b className="foot-h">Partners</b><Link href="/pos">Merchant POS</Link><Link href="/admin">Admin</Link></div>
         </div>
-        <div className="foot"><span>© 2026 Student Pass · studentpass.lk</span><span>Development build</span></div>
+        <div className="foot"><span>© 2026 Student Pass · studentpass.lk</span>{process.env.NODE_ENV !== "production" && <span>Development build</span>}</div>
       </div>
     </footer>
   );
