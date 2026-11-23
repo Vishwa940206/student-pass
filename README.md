@@ -69,7 +69,22 @@ Notes:
 - **Row Level Security** is enabled on every table (migration `enable_row_level_security`). With no policies, Supabase's public Data API can't read anything, while the app (connecting as the table owner) works normally. **Every new table needs `ENABLE ROW LEVEL SECURITY` in its migration.**
 - The POS relies on transactions and row locks, which work through the transaction pooler (6543).
 
-## Tests
+## Deploying (Vercel + Supabase)
+
+1. Set up Supabase as above. Commit `prisma/certs/supabase-ca.crt` (it's public, and `next.config.ts` bundles it with the server functions).
+2. From your machine, with `DATABASE_URL` and `DIRECT_URL` pointing at Supabase:
+   ```bash
+   pnpm db:deploy                                   # apply migrations
+   ADMIN_EMAIL=you@example.com ADMIN_NAME="Your Name" ADMIN_PASSWORD='<12+ chars>' pnpm db:seed:prod
+   ```
+   `db:seed:prod` loads institutions and the browse-only catalogue, and creates or promotes that one admin. It is safe to re-run. **Never run `pnpm db:seed` against production**: it creates demo accounts with the shared password `studentpass`.
+3. Import the GitHub repo in Vercel (framework: Next.js, detected automatically). Set these environment variables for Production:
+   - `DATABASE_URL`: transaction pooler (6543), with `sslmode=verify-full&sslrootcert=prisma/certs/supabase-ca.crt`
+   - `PASS_TOKEN_SECRET`: a **new** value from `openssl rand -base64 48`, not your local one
+   - Leave `DIRECT_URL` out of Vercel. Only the Prisma CLI uses it.
+4. Deploy. Pushes to `main` redeploy automatically. Run `pnpm db:deploy` from your machine **before** merging anything that adds a migration.
+5. `vercel.json` pins the server functions to Mumbai (`bom1`), next to the database.
+
 
 ```bash
 pnpm test     # unit tests: pass tokens, discount/eligibility rules, Colombo week boundaries
@@ -127,4 +142,4 @@ scripts/smoke.sh            API scenarios
 1. Real student verification (institution roster / document upload) to replace the manual admin approval.
 2. Rate limiting on login and signup, email verification, password reset.
 3. Language switch (EN / සිං / தமிழ்), as in the prototype.
-4. Deploy: hosted Postgres + Vercel/Railway, with secrets in the host's secret store.
+4. Merchant and offer management in the admin UI (production starts with browse-only offers).
