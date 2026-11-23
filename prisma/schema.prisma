@@ -1,0 +1,269 @@
+// Student Pass — MVP schema: verified pass, offers, merchant POS redemption.
+// Money is stored as integer LKR cents (Int) to avoid floating point errors.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ───────────────────────── Identity ─────────────────────────
+
+enum Role {
+  STUDENT
+  MERCHANT_STAFF
+  ADMIN
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         Role     @default(STUDENT)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions      Session[]
+  student       StudentProfile?
+  staff         MerchantStaff?
+  savedOffers   SavedOffer[]
+  authorizedPos Authorization[] @relation("AuthorizedBy")
+}
+
+model Session {
+  id        String   @id // sha256 of the cookie token; the raw token is never stored
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// ───────────────────────── Students & institutions ─────────────────────────
+
+enum InstitutionType {
+  UGC_UNIVERSITY
+  PUBLIC_UNIVERSITY
+  DEGREE_AWARDING
+  FOREIGN_DEGREE_PROVIDER
+}
+
+model Institution {
+  id        String          @id @default(cuid())
+  slug      String          @unique
+  name      String
+  shortName String
+  district  String
+  type      InstitutionType
+  isPartner Boolean         @default(false)
+
+  students       StudentProfile[]
+  sponsoredOffers Offer[]
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  EXPIRED
+}
+
+enum PassState {
+  ACTIVE
+  FROZEN // frozen by the student (lost phone / card); cannot be scanned
+}
+
+model StudentProfile {
+  id                 String             @id @default(cuid())
+  userId             String             @unique
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  institutionId      String
+  institution        Institution        @relation(fields: [institutionId], references: [id])
+  studentNumber      String
+  programme          String?
+  verificationStatus VerificationStatus @default(PENDING)
+  verifiedAt         DateTime?
+  validUntil         DateTime?
+  // Opaque id that appears inside the QR token. Never the user id, name or institution.
+  passId             String             @unique @default(cuid())
+  passState          PassState          @default(ACTIVE)
+  cardSkin           String             @default("graphite")
+  createdAt          DateTime           @default(now())
+
+  authorizations Authorization[]
+  redemptions    Redemption[]
+
+  @@unique([institutionId, studentNumber])
+}
+
+// ───────────────────────── Merchants ─────────────────────────
+
+model Merchant {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  name      String
+  createdAt DateTime @default(now())
+
+  locations MerchantLocation[]
+  staff     MerchantStaff[]
+  offers    Offer[]
+}
+
+model MerchantLocation {
+  id          String   @id @default(cuid())
+  merchantId  String
+  merchant    Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  code        String // e.g. "KOL" — short code printed on receipts
+  name        String
+  district    String
+  inProgramme Boolean  @default(true)
+
+  authorizations Authorization[]
+  offerLinks     OfferLocation[]
+
+  @@unique([merchantId, code])
+}
+
+model MerchantStaff {
+  userId     String   @id
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  merchantId String
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+}
+
+// ───────────────────────── Offers ─────────────────────────
+
+enum Channel {
+  IN_STORE
+  ONLINE
+}
+
+enum OfferStatus {
+  DRAFT
+  PROSPECT // listed for browsing; partner terms not yet confirmed — cannot be redeemed
+  LIVE
+  PAUSED
+  ENDED
+}
+
+enum DiscountType {
+  PERCENT // discountValue = basis points (1000 = 10%)
+  FIXED // discountValue = cents off
+  SPONSORED // institution pays up to discountValue cents per redemption
+}
+
+model Offer {
+  id          String       @id @default(cuid())
+  slug        String       @unique
+  merchantId  String?
+  merchant    Merchant?    @relation(fields: [merchantId], references: [id])
+  title       String
+  benefit     String
+  howTo       String
+  category    String
+  badge       String // short display word from the prototype ("Brew", "AI", …)
+  channel     Channel
+  districts   String[] // empty = available everywhere / online
+  status      OfferStatus  @default(DRAFT)
+  externalUrl String? // provider-managed plans (redeemed on the provider's site)
+
+  discountType     DiscountType?
+  discountValue    Int?
+  maxDiscountCents Int?
+  minSpendCents    Int?
+
+  // Optional sponsored-offer rules
+  sponsorId          String?
+  sponsor            Institution? @relation(fields: [sponsorId], references: [id])
+  sponsorBudgetCents Int? // remaining budget; decremented on capture
+  limitPerWeek       Int?
+  limitPerYear       Int?
+
+  startsAt  DateTime?
+  endsAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  locations      OfferLocation[] // empty = every location of the merchant
+  savedBy        SavedOffer[]
+  authorizations Authorization[]
+  redemptions    Redemption[]
+
+  @@index([status, category])
+}
+
+model OfferLocation {
+  offerId    String
+  offer      Offer            @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  locationId String
+  location   MerchantLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@id([offerId, locationId])
+}
+
+model SavedOffer {
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  offerId   String
+  offer     Offer    @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([userId, offerId])
+}
+
+// ───────────────────────── POS: authorise → capture ─────────────────────────
+
+enum AuthorizationStatus {
+  HELD // discount reserved, waiting for the sale to complete
+  CAPTURED // sale completed → a Redemption exists
+  CANCELLED // basket changed / sale abandoned
+  EXPIRED
+}
+
+model Authorization {
+  id             String              @id @default(cuid())
+  idempotencyKey String              @unique // supplied by the POS; retries return the same row
+  studentId      String
+  student        StudentProfile      @relation(fields: [studentId], references: [id])
+  offerId        String
+  offer          Offer               @relation(fields: [offerId], references: [id])
+  locationId     String
+  location       MerchantLocation    @relation(fields: [locationId], references: [id])
+  authorizedById String
+  authorizedBy   User                @relation("AuthorizedBy", fields: [authorizedById], references: [id])
+  // The 30-second token window that was scanned. One scan → one authorisation (replay guard).
+  tokenStep      Int
+  subtotalCents  Int
+  discountCents  Int
+  status         AuthorizationStatus @default(HELD)
+  expiresAt      DateTime
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  redemption Redemption?
+
+  @@unique([studentId, tokenStep])
+  @@index([studentId, offerId, status])
+}
+
+model Redemption {
+  id              String         @id @default(cuid())
+  ref             String         @unique // human receipt ref, e.g. RCP-1041
+  authorizationId String         @unique
+  authorization   Authorization  @relation(fields: [authorizationId], references: [id])
+  studentId       String
+  student         StudentProfile @relation(fields: [studentId], references: [id])
+  offerId         String
+  offer           Offer          @relation(fields: [offerId], references: [id])
+  discountCents   Int
+  voidedAt        DateTime?
+  voidReason      String?
+  createdAt       DateTime       @default(now())
+
+  @@index([studentId, offerId, createdAt])
+}
