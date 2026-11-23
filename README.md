@@ -83,7 +83,7 @@ Notes:
    - `PASS_TOKEN_SECRET`: a **new** value from `openssl rand -base64 48`, not your local one
    - Leave `DIRECT_URL` out of Vercel. Only the Prisma CLI uses it.
 4. Deploy. Pushes to `main` redeploy automatically. Run `pnpm db:deploy` from your machine **before** merging anything that adds a migration.
-5. `vercel.json` pins the server functions to Mumbai (`bom1`), next to the database.
+5. `vercel.json` pins the server functions to one region. Keep it matched to the Supabase region (`syd1` for `ap-southeast-2`, `bom1` for `ap-south-1`).
 
 
 ```bash
