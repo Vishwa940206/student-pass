@@ -123,6 +123,18 @@ GET  /api/v1/admin/verifications               POST /api/v1/admin/verifications/
 
 Mutating requests must be JSON and same-origin. Sessions are httpOnly, SameSite=Lax cookies, and only a SHA-256 of each token is stored.
 
+## Preview (coming-soon features)
+
+`/preview` serves the full design prototype as an interactive preview with sample data: shop, pay, loans, points, pathways, Campus Life, Institution OS and the merchant page. The home page and the desktop menu link into it. Nothing there touches the database.
+
+Regenerate it after changing the prototype:
+
+```bash
+node scripts/build-preview.mjs ~/Downloads/student-pass.html
+```
+
+The script swaps real brands (Barista, the APIIT co-brand card, Adobe, GitHub, Microsoft 365) for neutral names, because the preview is public and those aren't partners yet. It fails if a known brand is left in. Add any new real brand to the script before publishing.
+
 ## Layout
 
 ```
