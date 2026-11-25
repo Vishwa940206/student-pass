@@ -232,7 +232,7 @@ function Blocked({ status, code, message }: { status: number; code: string; mess
         {status === 401 && <Link className="btn btn-primary" href="/login">Sign in</Link>}
         {staff && <Link className="btn btn-primary" href="/institution">Institution portal</Link>}
         {code === "NOT_VERIFIED" && <Link className="btn btn-primary" href="/pass">Check my pass</Link>}
-        <a className="btn btn-ghost" href="/preview#/life">See the preview</a>
+        {status === 401 && <a className="btn btn-ghost" href="/signup">Get Student Pass</a>}
       </div>
     </div>
   );

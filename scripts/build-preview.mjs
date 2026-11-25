@@ -78,31 +78,46 @@ var SP_INST = SP_ME && SP_ME.inst ? SP_ME.inst : { name: 'Inspire College', abbr
   "head",
 );
 
-// ── Preview framing ─────────────────────────────────────────────────────────
-swap(/<title>([^<]*)<\/title>/, "<title>Preview · $1</title>", "title");
+// ── Hand-off to the live app ────────────────────────────────────────────────
+// Screens that now exist for real open the real page instead of their sample version
+// (any click or deep link to these routes). Shop, pay, loans, rewards, pathways and the
+// other product pages stay as designed.
+const LIVE_ROUTES = {
+  "#/pass": "/pass", // My Pass, "Get Student Pass" buttons
+  "#/benefits": "/offers",
+  "#/p?id=offers": "/offers",
+  "#/life": "/campus",
+  "#/p?id=life": "/campus",
+  "#/p?id=campus": "/campus",
+  "#/suite": "/institution",
+  "#/p?id=institutions": "/for-institutions",
+};
 swap(
   "</head>",
   `<meta name="robots" content="noindex, nofollow">
-<style>
-.sp-preview{position:fixed;z-index:9999;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom));
-  display:flex;align-items:center;gap:10px;padding:8px 8px 8px 16px;border-radius:999px;background:#1D1D1F;color:#F5F5F7;
-  font:600 13px/1.2 -apple-system,BlinkMacSystemFont,"Inter",system-ui,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.25);
-  white-space:nowrap;max-width:calc(100% - 24px)}
-.sp-preview b{color:#3EE08F;font-weight:700}
-.sp-preview span{overflow:hidden;text-overflow:ellipsis}
-.sp-preview a{padding:7px 12px;border-radius:999px;background:#3EE08F;color:#0B0B10;text-decoration:none;font-weight:700;flex-shrink:0}
-@media (max-width:1024px){.sp-preview{bottom:calc(96px + env(safe-area-inset-bottom));font-size:12px}}
-</style>
+<script>
+(function () {
+  var MAP = ${JSON.stringify(LIVE_ROUTES)};
+  function live(hash) {
+    if (!hash) return null;
+    var base = hash.split("&")[0];
+    if (MAP[base]) return MAP[base];
+    var path = base.split("?")[0];
+    return path === "#/pass" || path === "#/life" || path === "#/suite" ? MAP[path] : null;
+  }
+  var first = live(location.hash);
+  if (first) location.replace(first);
+  // Capture phase: runs before the prototype's own router sees the click.
+  document.addEventListener("click", function (e) {
+    var a = e.target.closest && e.target.closest('a[href^="#/"]');
+    var to = a && live(a.getAttribute("href"));
+    if (to) { e.preventDefault(); e.stopImmediatePropagation(); location.href = to; }
+  }, true);
+  window.addEventListener("hashchange", function () { var to = live(location.hash); if (to) location.replace(to); });
+})();
+</script>
 </head>`,
   "head",
-);
-swap(
-  /<\/body>\s*<\/html>\s*$/,
-  `<div class="sp-preview" role="note"><b>Preview</b><span>Sample data</span><a href="/">Open the live app</a></div>
-</body>
-</html>
-`,
-  "body",
 );
 
 mkdirSync(dirname(out), { recursive: true });

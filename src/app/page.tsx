@@ -14,7 +14,7 @@ const TRUST = [
   ["Freeze it instantly", "Lost your phone? Freeze your pass in one tap, and scans are declined until you unfreeze it."],
 ] as const;
 
-// Interactive previews of what's coming, served from /preview (sample data only).
+// Product areas. Shop, pay, loans, points, pathways, jobs and merchants open the design screens at /preview.
 const COMING = [
   ["var(--sun)", "i-cart", "Student Shop", "Course books, laptops and campus gear at student prices.", "/preview#/app?t=shop"],
   ["var(--cyan)", "i-wallet", "Pay & fees", "Pay fees and everyday costs, with a wallet and spending view.", "/preview#/app?t=pay"],
@@ -74,14 +74,10 @@ export default function Home() {
       <section>
         <div className="sec-head">
           <div className="l">
-            <span className="eyebrow">Live and coming soon</span>
+            <span className="eyebrow">Explore</span>
             <h2 className="h-sec">Everything a student needs, in one place.</h2>
           </div>
         </div>
-        <p className="muted" style={{ margin: "-8px 0 20px", maxWidth: 560 }}>
-          Campus Life and the institution portal are live. The rest are interactive previews of what we’re building next.
-          They use sample data, so nothing you do there is saved or charged.
-        </p>
         <div className="coming">
           {COMING.map(([c, icon, h, p, href]) => (
             <a key={h} className="card trust-c hover" href={href}>
@@ -89,7 +85,7 @@ export default function Home() {
               <h3 className="h-card">{h}</h3>
               <p className="muted small">{p}</p>
               <span className="small" style={{ fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}>
-                {href.startsWith("/preview") ? "Preview" : "Open"} <Icon name="i-arrow" size={14} />
+                Open <Icon name="i-arrow" size={14} />
               </span>
             </a>
           ))}

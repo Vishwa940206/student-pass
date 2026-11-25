@@ -173,6 +173,8 @@ Regenerate it after changing the prototype:
 node scripts/build-preview.mjs ~/Downloads/student-pass.html
 ```
 
+There's no preview badge. Screens that exist for real (My Pass, Offers, Campus Life, Institution OS) open the live pages instead of their design versions, via the `LIVE_ROUTES` map in the build script; add a route there when another area goes live.
+
 The script swaps real brands (Barista, the APIIT co-brand card, Adobe, GitHub, Microsoft 365) for neutral names, because the preview is public and those aren't partners yet. It fails if a known brand is left in. Add any new real brand to the script before publishing.
 
 ## Layout

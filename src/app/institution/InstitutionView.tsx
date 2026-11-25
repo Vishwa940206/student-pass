@@ -107,7 +107,7 @@ export function InstitutionView() {
         </p>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           {blocked === 401 && <Link className="btn btn-primary" href="/login">Sign in</Link>}
-          <a className="btn btn-ghost" href="/preview#/suite">See the full Institution OS preview</a>
+          <a className="btn btn-ghost" href="/for-institutions">What Institution OS includes</a>
         </div>
       </div>
     );
