@@ -2,7 +2,7 @@
 
 Sri Lanka's student platform: a verified digital pass, student offers, and merchant scan-to-redeem.
 
-The design reference is the single-file prototype (`student-pass.html`). This repo is the real product. **MVP scope:** Pass + Offers + merchant POS. The prototype's shop, pay, loans, pathways, campus life and Institution OS come later.
+The design reference is the single-file prototype (`student-pass.html`). This repo is the real product. **Live:** Pass, Offers, merchant POS, Campus Life and the institution portal. The prototype's shop, pay, loans, points and pathways are interactive previews at `/preview` (see below).
 
 ## Stack
 
@@ -17,7 +17,10 @@ Next.js 16 (App Router, TypeScript) · PostgreSQL · Prisma 7 (`@prisma/adapter-
 | `/signup`, `/login` | students | Institution picker; new accounts start as *pending* |
 | `/pass` | students | Live rotating QR (30 s ring), full-screen scan, freeze, card colour, sponsored perks, savings |
 | `/pos` | merchant staff | Branch, bill amount, scan (camera via BarcodeDetector) or paste QR, apply / complete / cancel, ledger with refunds |
-| `/admin` | admins | Verification queue |
+| `/campus` | verified students | Campus Life: due-soon deadlines, courses with assignments and grades, events (RSVP with capacity), clubs (join/leave), notices |
+| `/institution` | institution staff | Portal: overview numbers, notices, events, clubs, courses (enrol by student number, assignments, gradebook). Institution admins also verify their own students and manage staff |
+| `/account` | everyone signed in | Change password (signs out other devices) |
+| `/admin` | platform admins | Verification queue (all institutions); create each institution's first admin |
 
 The UI reuses the prototype's stylesheet unchanged (`src/styles/prototype.css`) and its icon sprite (`src/components/Sprite.tsx`). Pages are static shells, and interactive parts call `/api/v1` from the browser, the same API the mobile apps will use.
 
@@ -29,12 +32,14 @@ The UI reuses the prototype's stylesheet unchanged (`src/styles/prototype.css`) 
 pnpm install
 cp .env.example .env          # then fill PASS_TOKEN_SECRET (openssl rand -base64 48)
 pnpm db:up                    # terminal 1: local Postgres 18 on :54329 (no Docker needed)
-pnpm db:migrate               # apply migrations
+pnpm db:deploy                # apply migrations
 pnpm db:seed                  # institutions, offers, demo accounts
 pnpm dev                      # terminal 2: http://localhost:3000
 ```
 
 For local dev, set `DATABASE_URL="postgresql://postgres:postgres@localhost:54329/student_pass"`.
+
+> `prisma migrate dev` can't replay migration `20261123100117_enable_row_level_security` on its shadow database (that migration enables RLS on `_prisma_migrations`, which doesn't exist there). Apply migrations with `pnpm db:deploy`, and generate new ones with `prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script`, adding `ENABLE ROW LEVEL SECURITY` for each new table.
 
 > Don't use `prisma dev` (PGlite) for this project. It can't run concurrent transactions, and the POS relies on row locks (`SELECT … FOR UPDATE`).
 
@@ -47,9 +52,25 @@ For local dev, set `DATABASE_URL="postgresql://postgres:postgres@localhost:54329
 | ishara@example.com | Student · SLIIT | Verified, pass **frozen** |
 | amaya@example.com | Student · University of Colombo | **Pending** verification |
 | cashier@sandbox-cafe.example | Merchant staff · Sandbox Café | — |
-| admin@studentpass.example | Admin | — |
+| admin@studentpass.example | Platform admin | — |
+| registrar@inspire-college.example | Institution admin · Inspire College | Verifies students, manages staff |
+| lecturer@inspire-college.example | Lecturer · Inspire College | Teaches CS101 and WEB201 |
 
 "Sandbox Café" is a fictional merchant for testing. The real-brand categories from the prototype are seeded as `PROSPECT`: browsable, but not redeemable until their terms are confirmed.
+
+## Institutions and Campus Life
+
+**Accounts.** A platform admin creates an institution's first admin at `/admin`. That person adds lecturers (or more admins) at `/institution` → Staff. New staff accounts get a one-time password, shown once to whoever created them. They change it at `/account`. Removing a staff member ends their sessions and portal access but keeps the account, so their notices and grades keep an author.
+
+| | Lecturer | Institution admin |
+|---|:-:|:-:|
+| Notices, events, clubs, courses, assignments, grades | ✓ | ✓ |
+| Verify the institution's students | | ✓ |
+| Add and remove staff | | ✓ |
+
+**Tenant isolation.** Every campus table has an `institutionId`. Handlers take it from `requireCampusStudent()` / `requireStaff()` in `src/lib/campus/access.ts`, never from the request, and include it in every query, so another institution's ids return 404. Students see Campus Life only once verified and while their pass is valid.
+
+**Tests.** `scripts/smoke-campus.sh` runs 46 API checks (access rules, isolation, RSVP capacity, grading limits, staff lifecycle) against a server on a freshly seeded **dev** database.
 
 ## Using Supabase (hosted Postgres)
 

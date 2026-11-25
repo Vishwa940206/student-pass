@@ -15,7 +15,8 @@ datasource db {
 enum Role {
   STUDENT
   MERCHANT_STAFF
-  ADMIN
+  INSTITUTION_STAFF
+  ADMIN // platform admin (Student Pass team)
 }
 
 model User {
@@ -32,6 +33,12 @@ model User {
   staff         MerchantStaff?
   savedOffers   SavedOffer[]
   authorizedPos Authorization[] @relation("AuthorizedBy")
+
+  institutionStaff InstitutionStaff?
+  announcements    Announcement[]
+  eventsCreated    Event[]
+  coursesTaught    Course[]
+  gradesGiven      Grade[]
 }
 
 model Session {
@@ -64,6 +71,12 @@ model Institution {
 
   students       StudentProfile[]
   sponsoredOffers Offer[]
+
+  staff         InstitutionStaff[]
+  announcements Announcement[]
+  events        Event[]
+  clubs         Club[]
+  courses       Course[]
 }
 
 enum VerificationStatus {
@@ -97,6 +110,11 @@ model StudentProfile {
 
   authorizations Authorization[]
   redemptions    Redemption[]
+
+  rsvps      EventRsvp[]
+  clubs      ClubMember[]
+  enrolments Enrolment[]
+  grades     Grade[]
 
   @@unique([institutionId, studentNumber])
 }
@@ -266,4 +284,150 @@ model Redemption {
   createdAt       DateTime       @default(now())
 
   @@index([studentId, offerId, createdAt])
+}
+
+// ───────────────────────── Institutions: staff accounts ─────────────────────────
+// Every Campus Life / Institution OS row belongs to one institution, and every query
+// is scoped by the signed-in person's institutionId (see src/lib/campus/access.ts).
+
+enum StaffRole {
+  ADMIN // manages staff, verifies students, everything a lecturer can do
+  LECTURER // announcements, events, clubs, courses, assignments, grades
+}
+
+model InstitutionStaff {
+  userId        String      @id
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  staffRole     StaffRole   @default(LECTURER)
+  createdAt     DateTime    @default(now())
+
+  @@index([institutionId])
+}
+
+// ───────────────────────── Campus Life ─────────────────────────
+
+model Announcement {
+  id            String      @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  authorId      String
+  author        User        @relation(fields: [authorId], references: [id])
+  title         String
+  body          String
+  pinned        Boolean     @default(false)
+  createdAt     DateTime    @default(now())
+
+  @@index([institutionId, createdAt])
+}
+
+model Event {
+  id            String      @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  createdById   String
+  createdBy     User        @relation(fields: [createdById], references: [id])
+  title         String
+  description   String
+  location      String
+  startsAt      DateTime
+  endsAt        DateTime?
+  capacity      Int? // null = unlimited
+  createdAt     DateTime    @default(now())
+
+  rsvps EventRsvp[]
+
+  @@index([institutionId, startsAt])
+}
+
+model EventRsvp {
+  eventId   String
+  event     Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  studentId String
+  student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  createdAt DateTime       @default(now())
+
+  @@id([eventId, studentId])
+}
+
+model Club {
+  id            String      @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  name          String
+  description   String
+  createdAt     DateTime    @default(now())
+
+  members ClubMember[]
+
+  @@unique([institutionId, name])
+}
+
+model ClubMember {
+  clubId    String
+  club      Club           @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  studentId String
+  student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  joinedAt  DateTime       @default(now())
+
+  @@id([clubId, studentId])
+}
+
+// ───────────────────────── Courses ─────────────────────────
+
+model Course {
+  id            String      @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  code          String // e.g. "CS101"
+  name          String
+  lecturerId    String?
+  lecturer      User?       @relation(fields: [lecturerId], references: [id], onDelete: SetNull)
+  createdAt     DateTime    @default(now())
+
+  enrolments  Enrolment[]
+  assignments Assignment[]
+
+  @@unique([institutionId, code])
+}
+
+model Enrolment {
+  courseId   String
+  course     Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  studentId  String
+  student    StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  enrolledAt DateTime       @default(now())
+
+  @@id([courseId, studentId])
+  @@index([studentId])
+}
+
+model Assignment {
+  id          String   @id @default(cuid())
+  courseId    String
+  course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title       String
+  description String   @default("")
+  dueAt       DateTime
+  maxMarks    Int      @default(100)
+  createdAt   DateTime @default(now())
+
+  grades Grade[]
+
+  @@index([courseId, dueAt])
+}
+
+model Grade {
+  assignmentId String
+  assignment   Assignment     @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  marks        Int
+  feedback     String?
+  gradedById   String
+  gradedBy     User           @relation(fields: [gradedById], references: [id])
+  gradedAt     DateTime       @default(now()) @updatedAt
+
+  @@id([assignmentId, studentId])
 }

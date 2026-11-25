@@ -28,12 +28,13 @@ export async function api<T = unknown>(path: string, init: RequestInit & { json?
 }
 
 export interface Me {
-  user: { id: string; email: string; name: string; role: "STUDENT" | "MERCHANT_STAFF" | "ADMIN" };
+  user: { id: string; email: string; name: string; role: "STUDENT" | "MERCHANT_STAFF" | "INSTITUTION_STAFF" | "ADMIN" };
   student: null | {
     verificationStatus: "PENDING" | "VERIFIED" | "REJECTED" | "EXPIRED";
     passState: "ACTIVE" | "FROZEN";
     institution: { shortName: string };
   };
+  staff: null | { staffRole: "ADMIN" | "LECTURER"; institution: { id: string; name: string; shortName: string } };
 }
 
 /** Returns the signed-in user, or null. */

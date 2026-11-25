@@ -16,24 +16,25 @@ function defaultValidUntil() {
   return `${year}-06-30`;
 }
 
-export function VerificationQueue() {
+/** `endpoint`: "/admin/verifications" (all institutions) or "/institution/verifications" (one). */
+export function VerificationQueue({ endpoint = "/admin/verifications", embedded = false }: { endpoint?: string; embedded?: boolean } = {}) {
   const [rows, setRows] = useState<Pending[] | null>(null);
   const [denied, setDenied] = useState(false);
   const [validUntil, setValidUntil] = useState(""); // empty = default (computed on click, not during prerender)
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = useCallback(() => {
-    api<{ pending: Pending[] }>("/admin/verifications")
+    api<{ pending: Pending[] }>(endpoint)
       .then((r) => setRows(r.pending))
       .catch((e) => { if (e instanceof ApiFailure && (e.status === 401 || e.status === 403)) setDenied(true); });
-  }, []);
+  }, [endpoint]);
   useEffect(load, [load]);
 
   async function decide(p: Pending, decision: "VERIFIED" | "REJECTED") {
     if (decision === "REJECTED" && !window.confirm(`Reject ${p.user.name}?`)) return;
     setBusy(p.id);
     try {
-      await api(`/admin/verifications/${p.id}`, { method: "POST", json: decision === "VERIFIED" ? { decision, validUntil: validUntil || defaultValidUntil() } : { decision } });
+      await api(`${endpoint}/${p.id}`, { method: "POST", json: decision === "VERIFIED" ? { decision, validUntil: validUntil || defaultValidUntil() } : { decision } });
       toast(decision === "VERIFIED" ? `${p.user.name} verified` : `${p.user.name} rejected`);
       setRows((xs) => xs!.filter((x) => x.id !== p.id));
     } catch (e) {
@@ -43,6 +44,7 @@ export function VerificationQueue() {
     }
   }
 
+  if (denied && embedded) return <p className="muted">Only institution admins can verify students.</p>;
   if (denied) {
     return (
       <div className="card" style={{ padding: 32, maxWidth: 560 }}>

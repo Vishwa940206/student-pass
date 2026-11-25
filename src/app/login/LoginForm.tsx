@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { api, authChanged, toast } from "@/lib/client";
 
-const HOME_FOR_ROLE = { STUDENT: "/pass", MERCHANT_STAFF: "/pos", ADMIN: "/admin" } as const;
+const HOME_FOR_ROLE = { STUDENT: "/pass", MERCHANT_STAFF: "/pos", INSTITUTION_STAFF: "/institution", ADMIN: "/admin" } as const;
 
 export function LoginForm() {
   const router = useRouter();
@@ -40,7 +40,8 @@ export function LoginForm() {
       {process.env.NODE_ENV !== "production" && (
         <p className="tiny" style={{ margin: 0 }}>
           Dev accounts (password <b>studentpass</b>): nethmi@example.com · kasun@example.com · ishara@example.com (frozen) ·
-          amaya@example.com (pending) · cashier@sandbox-cafe.example · admin@studentpass.example
+          amaya@example.com (pending) · cashier@sandbox-cafe.example · admin@studentpass.example ·
+          registrar@inspire-college.example (institution admin) · lecturer@inspire-college.example
         </p>
       )}
     </form>

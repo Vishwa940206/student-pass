@@ -97,6 +97,53 @@ async function main() {
     create: { email: "admin@studentpass.example", name: "Student Pass Admin", passwordHash, role: "ADMIN" },
   });
 
+  // ── Campus Life + Institution OS demo (Inspire College) ──
+  const ic = inst.IC;
+  const staffAccounts = [
+    { email: "registrar@inspire-college.example", name: "Dilani Jayasuriya", staffRole: "ADMIN" as const },
+    { email: "lecturer@inspire-college.example", name: "Ruwan Fernando", staffRole: "LECTURER" as const },
+  ];
+  const staffIds: string[] = [];
+  for (const a of staffAccounts) {
+    const u = await db.user.upsert({
+      where: { email: a.email },
+      update: { passwordHash, role: "INSTITUTION_STAFF" },
+      create: { email: a.email, name: a.name, passwordHash, role: "INSTITUTION_STAFF" },
+    });
+    await db.institutionStaff.upsert({
+      where: { userId: u.id },
+      update: { institutionId: ic, staffRole: a.staffRole },
+      create: { userId: u.id, institutionId: ic, staffRole: a.staffRole },
+    });
+    staffIds.push(u.id);
+  }
+  const [registrarId, lecturerId] = staffIds;
+  const nethmi = await db.studentProfile.findFirstOrThrow({ where: { user: { email: "nethmi@example.com" } } });
+
+  // Campus content is recreated on every seed run so dates stay relative to today.
+  await db.announcement.deleteMany({ where: { institutionId: ic } });
+  await db.event.deleteMany({ where: { institutionId: ic } });
+  await db.club.deleteMany({ where: { institutionId: ic } });
+  await db.course.deleteMany({ where: { institutionId: ic } });
+  const day = (n: number, h = 9) => { const d = new Date(); d.setDate(d.getDate() + n); d.setHours(h, 0, 0, 0); return d; };
+
+  await db.announcement.createMany({ data: [
+    { institutionId: ic, authorId: registrarId, pinned: true, title: "Semester 2 timetable is out", body: "Check your course pages for updated lecture rooms. Labs start in week 2." },
+    { institutionId: ic, authorId: lecturerId, title: "Library hours extended", body: "The library is open until 10 pm on weekdays during the exam period." },
+  ] });
+  const fresh = await db.event.create({ data: { institutionId: ic, createdById: registrarId, title: "Freshers’ Night", description: "Music, food and every club in one hall.", location: "Main hall", startsAt: day(3, 18), endsAt: day(3, 22), capacity: 300 } });
+  await db.event.create({ data: { institutionId: ic, createdById: lecturerId, title: "Hack the Campus — 24h hackathon", description: "Teams of up to four. Mentors on site.", location: "Computing labs", startsAt: day(10, 9), endsAt: day(11, 9), capacity: 2 } });
+  await db.eventRsvp.create({ data: { eventId: fresh.id, studentId: nethmi.id } });
+  const coding = await db.club.create({ data: { institutionId: ic, name: "Coding Club", description: "Weekly build nights and hackathon prep." } });
+  await db.club.create({ data: { institutionId: ic, name: "Photography Society", description: "Photo walks around Colombo every other Saturday." } });
+  await db.clubMember.create({ data: { clubId: coding.id, studentId: nethmi.id } });
+  const cs = await db.course.create({ data: { institutionId: ic, code: "CS101", name: "Programming Foundations", lecturerId } });
+  await db.course.create({ data: { institutionId: ic, code: "WEB201", name: "Web Development", lecturerId } });
+  await db.enrolment.create({ data: { courseId: cs.id, studentId: nethmi.id } });
+  const a1 = await db.assignment.create({ data: { courseId: cs.id, title: "Lab 1 · Variables and loops", dueAt: day(-7, 23), maxMarks: 20 } });
+  await db.assignment.create({ data: { courseId: cs.id, title: "Mid-term project", description: "Build a small command-line app. Submit via the lab portal.", dueAt: day(5, 23), maxMarks: 100 } });
+  await db.grade.create({ data: { assignmentId: a1.id, studentId: nethmi.id, marks: 17, feedback: "Clean code. Watch off-by-one errors.", gradedById: lecturerId } });
+
   const counts = await Promise.all([db.institution.count(), db.offer.count(), db.user.count()]);
   console.log(`Seeded: ${counts[0]} institutions, ${counts[1]} offers, ${counts[2]} users (password: ${DEV_PASSWORD})`);
 }

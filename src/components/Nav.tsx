@@ -45,11 +45,14 @@ export function Nav() {
   const links: [string, string][] = [["/", "Home"], ["/offers", "Offers"]];
   if (!me || role === "STUDENT") links.push(["/pass", "My Pass"]);
   if (role === "MERCHANT_STAFF") links.push(["/pos", "POS"]);
-  if (role === "ADMIN") links.push(["/admin", "Verifications"]);
+  if (role === "INSTITUTION_STAFF") links.push(["/institution", "Portal"]);
+  if (role === "ADMIN") links.push(["/admin", "Admin"]);
+  if (role !== "INSTITUTION_STAFF") links.push(["/campus", "Campus Life"]);
 
   // Centre tab on mobile: the main action for this role.
   const centre: [string, string] =
-    role === "MERCHANT_STAFF" ? ["/pos", "POS"] : role === "ADMIN" ? ["/admin", "Verify"] : ["/pass", "My Pass"];
+    role === "MERCHANT_STAFF" ? ["/pos", "POS"] : role === "ADMIN" ? ["/admin", "Admin"]
+      : role === "INSTITUTION_STAFF" ? ["/institution", "Portal"] : ["/pass", "My Pass"];
 
   return (
     <>
@@ -65,10 +68,9 @@ export function Nav() {
             {label}
           </Link>
         ))}
-        {/* Previews of what's coming (static page, so plain links rather than <Link>). */}
+        {/* Shop is still a preview (static page, so a plain link rather than <Link>). */}
         <a href="/preview#/app?t=shop">Shop</a>
-        <a href="/preview#/life">Campus Life</a>
-        <a href="/preview#/suite">Institutions</a>
+        {!me && <Link href="/institution" aria-current={path === "/institution" ? "page" : undefined}>Institutions</Link>}
       </nav>
       <div className="nav-right">
         <button className="icon-btn" onClick={toggleTheme} aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}>
@@ -76,7 +78,7 @@ export function Nav() {
         </button>
         {me === undefined ? null : me ? (
           <>
-            <span className="small muted" style={{ fontWeight: 600, whiteSpace: "nowrap" }}>{me.user.name.split(" ")[0]}</span>
+            <Link className="small muted" href="/account" title="Account" style={{ fontWeight: 600, whiteSpace: "nowrap", textDecoration: "none" }}>{me.user.name.split(" ")[0]}</Link>
             <button className="btn btn-ghost btn-sm" onClick={logout}>Sign out</button>
           </>
         ) : (
@@ -95,8 +97,10 @@ export function Nav() {
       <Link href={centre[0]} className="ab-pass" aria-current={path === centre[0] ? "page" : undefined}>
         <span className="fab"><Icon name="i-qr" size={24} /></span><span>{centre[1]}</span>
       </Link>
-      {me ? (
-        <button type="button" onClick={logout}><Icon name="i-users" size={22} /><span>Sign out</span></button>
+      {me && role === "STUDENT" ? (
+        <Link href="/campus" aria-current={path === "/campus" ? "page" : undefined}><Icon name="i-book" size={22} /><span>Campus</span></Link>
+      ) : me ? (
+        <Link href="/account" aria-current={path === "/account" ? "page" : undefined}><Icon name="i-users" size={22} /><span>Account</span></Link>
       ) : (
         <Link href="/login" aria-current={path === "/login" ? "page" : undefined}><Icon name="i-users" size={22} /><span>Sign in</span></Link>
       )}

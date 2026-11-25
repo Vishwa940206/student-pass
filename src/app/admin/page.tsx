@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { VerificationQueue } from "./VerificationQueue";
+import { InstitutionAccounts } from "./InstitutionAccounts";
 
 export const metadata: Metadata = { title: "Verifications" };
 
@@ -12,6 +13,7 @@ export default function AdminPage() {
           <p className="r">Check each student against their institution’s records before approving. Approved passes go live immediately.</p>
         </div>
         <VerificationQueue />
+        <InstitutionAccounts />
       </section>
     </div>
   );
