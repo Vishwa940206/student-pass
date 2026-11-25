@@ -45,6 +45,39 @@ swap("Search coffee, Adobe, gyms…", "Search coffee, cinema, gyms…", "search 
 const leftovers = ["Barista", "Adobe", "GitHub", "Microsoft", "'APIIT', note"].filter((b) => html.includes(b));
 if (leftovers.length) throw new Error(`Brand names still present: ${leftovers.join(", ")}`);
 
+// ── Personalisation ─────────────────────────────────────────────────────────
+// src/app/preview/route.ts replaces <!--SP_ME--> with the signed-in person's name and
+// institution. The sample student "Nethmi P." and the sample tenant ("Inspire College")
+// become variables, so a signed-in visitor sees their own name and institution.
+// Signed out (or opening /preview/index.html directly) keeps the sample data.
+swap(/id="fsName">Nethmi P\.<\/span>/, 'id="fsName"></span>', "full-screen name");
+swap(/'Nethmi P\.'/g, "SP_NAME", "sample name literal");
+swap(/Nethmi P\./g, "' + SP_NAME + '", "sample name in strings");
+swap(/Nethmi/g, "' + SP_FIRST + '", "sample first name");
+swap(
+  /(TEN = \{\s*ic: \{ id: 'ic', )name: 'Inspire College', abbr: 'IC', color: 'var\(--lilac\)', domain: 'campus\.inspirecollege\.example'/,
+  "$1name: SP_INST.name, abbr: SP_INST.abbr, color: SP_INST.color, domain: SP_INST.domain",
+  "tenant",
+);
+swap(
+  "(SU.tenant === 'ic' ? ' selected' : '') + '>Inspire College</option>",
+  "(SU.tenant === 'ic' ? ' selected' : '') + '>' + SP_INST.name + '</option>",
+  "tenant picker label",
+);
+if (/Nethmi/.test(html)) throw new Error("Sample name still present");
+swap(
+  /<head>/,
+  `<head>
+<!--SP_ME-->
+<script>
+var SP_ME = window.SP_ME || null;
+var SP_NAME = SP_ME ? SP_ME.short : 'Nethmi P.';
+var SP_FIRST = SP_NAME.split(' ')[0];
+var SP_INST = SP_ME && SP_ME.inst ? SP_ME.inst : { name: 'Inspire College', abbr: 'IC', color: 'var(--lilac)', domain: 'campus.inspirecollege.example' };
+</script>`,
+  "head",
+);
+
 // ── Preview framing ─────────────────────────────────────────────────────────
 swap(/<title>([^<]*)<\/title>/, "<title>Preview · $1</title>", "title");
 swap(

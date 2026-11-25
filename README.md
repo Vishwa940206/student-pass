@@ -146,7 +146,7 @@ Mutating requests must be JSON and same-origin. Sessions are httpOnly, SameSite=
 
 ## Preview (coming-soon features)
 
-`/preview` serves the full design prototype as an interactive preview with sample data: shop, pay, loans, points, pathways, Campus Life, Institution OS and the merchant page. The home page and the desktop menu link into it. Nothing there touches the database.
+`/preview` (route `src/app/preview/route.ts`) serves the full design prototype as an interactive preview, personalised with the signed-in person's name and institution, otherwise with sample data: shop, pay, loans, points, pathways, Campus Life, Institution OS and the merchant page. The home page and the desktop menu link into it. Nothing there touches the database.
 
 Regenerate it after changing the prototype:
 
