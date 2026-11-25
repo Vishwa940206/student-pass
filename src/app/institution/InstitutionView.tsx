@@ -10,6 +10,7 @@ import { CoursesPanel } from "./CoursesPanel";
 import { AnalyticsPanel, BrainPanel, MarketPanel } from "./InsightPanels";
 import { CrmPanel } from "./CrmPanel";
 import { AdmissionsPanel, SettingsPanel } from "./AdmissionsSettings";
+import { AiPanel, FeesPanel, PaymentsSettings, ServicesPanel } from "./FinanceAiServices";
 import { StaffPanel } from "./StaffPanel";
 
 export type StaffRole = "ADMIN" | "LECTURER" | "COUNSELLOR";
@@ -22,6 +23,7 @@ export interface Portal {
   me: { id: string; name: string; staffRole: StaffRole };
   institution: { id: string; name: string; shortName: string; slug: string };
   branding: { displayName: string; tagline: string | null; brandColor: string | null; logoUrl: string | null };
+  modules: string[];
   stats: { verified: number; pending: number; upcomingEvents: number; clubMembers: number; courses: number; enrolments: number };
   announcements: { id: string; title: string; body: string; pinned: boolean; createdAt: string; author: { name: string } }[];
   events: { id: string; title: string; description: string; location: string; startsAt: string; endsAt: string | null; capacity: number | null; going: number }[];
@@ -30,22 +32,25 @@ export interface Portal {
   staff: StaffMember[];
 }
 
-// Every Institution OS section, and which staff roles see it.
-const TABS = [
+// Every Institution OS section, which staff roles see it, and the licensed module it needs (if any).
+const TABS: readonly (readonly [string, string, readonly StaffRole[], string?])[] = [
   ["brain", "BI brain", ["ADMIN", "LECTURER", "COUNSELLOR"]],
-  ["analytics", "Analytics", ["ADMIN", "COUNSELLOR"]],
-  ["market", "Market", ["ADMIN", "COUNSELLOR"]],
-  ["crm", "CRM", ["ADMIN", "COUNSELLOR"]],
-  ["admissions", "Admissions", ["ADMIN", "COUNSELLOR"]],
+  ["analytics", "Analytics", ["ADMIN", "COUNSELLOR"], "analytics"],
+  ["market", "Market", ["ADMIN", "COUNSELLOR"], "market"],
+  ["crm", "CRM", ["ADMIN", "COUNSELLOR"], "crm"],
+  ["admissions", "Admissions", ["ADMIN", "COUNSELLOR"], "admissions"],
+  ["ai", "AI assistant", ["ADMIN", "COUNSELLOR"], "ai"],
+  ["fees", "Fees", ["ADMIN"], "fees"],
   ["students", "Students", ["ADMIN"]],
   ["notices", "Notices", ["ADMIN", "LECTURER"]],
   ["events", "Events", ["ADMIN", "LECTURER"]],
   ["clubs", "Clubs", ["ADMIN", "LECTURER"]],
   ["courses", "Courses", ["ADMIN", "LECTURER"]],
   ["staff", "Staff", ["ADMIN"]],
+  ["services", "Services", ["ADMIN"]],
   ["settings", "Settings", ["ADMIN"]],
-] as const;
-type Tab = (typeof TABS)[number][0];
+];
+type Tab = string;
 const ROLE_NAME: Record<StaffRole, string> = { ADMIN: "Institution admin", LECTURER: "Lecturer", COUNSELLOR: "Counsellor" };
 
 /** Submits a form as JSON, then toasts and reloads. Returns false (and toasts) on failure. */
@@ -110,7 +115,7 @@ export function InstitutionView() {
   if (!data) return <p className="muted">Loading the portal…</p>;
 
   const isAdmin = data.me.staffRole === "ADMIN";
-  const tabs = TABS.filter(([, , roles]) => (roles as readonly string[]).includes(data.me.staffRole)).map(([v, l]) => [v, l] as const);
+  const tabs = TABS.filter(([, , roles, mod]) => roles.includes(data.me.staffRole) && (!mod || data.modules.includes(mod))).map(([v, l]) => [v, l] as const);
   const brand = data.branding;
 
   return (
@@ -136,7 +141,10 @@ export function InstitutionView() {
       {tab === "market" && <MarketPanel />}
       {tab === "crm" && <CrmPanel key={JSON.stringify(filter ?? {})} staff={data.staff} meId={data.me.id} isAdmin={isAdmin} initial={filter} />}
       {tab === "admissions" && <AdmissionsPanel key={JSON.stringify(filter ?? {})} initial={filter} />}
-      {tab === "settings" && isAdmin && <SettingsPanel onBrandingChange={load} />}
+      {tab === "settings" && isAdmin && <SettingsPanel onBrandingChange={load} extra={<PaymentsSettings />} />}
+      {tab === "fees" && isAdmin && <FeesPanel />}
+      {tab === "ai" && <AiPanel isAdmin={isAdmin} slug={data.institution.slug} />}
+      {tab === "services" && isAdmin && <ServicesPanel />}
 
       {tab === "students" && isAdmin && <VerificationQueue endpoint="/institution/verifications" embedded />}
 
@@ -225,7 +233,7 @@ export function InstitutionView() {
         </div>
       )}
 
-      {tab === "courses" && <CoursesPanel courses={data.courses} staff={data.staff} reload={load} />}
+      {tab === "courses" && <CoursesPanel courses={data.courses} staff={data.staff} reload={load} lms={data.modules.includes("lms")} />}
       {tab === "staff" && isAdmin && <StaffPanel staff={data.staff} meId={data.me.id} reload={load} />}
     </div>
   );

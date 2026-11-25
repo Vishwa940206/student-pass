@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { handler, json } from "@/lib/api";
 import { ADMISSIONS, requireStaff } from "@/lib/campus/access";
+import { requireModule } from "@/lib/os/entitlements";
 
 const DAY = 86_400_000;
 
@@ -10,6 +11,7 @@ const DAY = 86_400_000;
  */
 export const GET = handler(async () => {
   const { institutionId } = await requireStaff(...ADMISSIONS);
+  await requireModule(institutionId, "market");
   const now = Date.now();
   const recent = { gte: new Date(now - 90 * DAY) }, prior = { gte: new Date(now - 180 * DAY), lt: new Date(now - 90 * DAY) };
 

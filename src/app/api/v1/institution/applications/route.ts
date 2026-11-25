@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { handler, json } from "@/lib/api";
 import { ADMISSIONS, requireStaff } from "@/lib/campus/access";
+import { requireModule } from "@/lib/os/entitlements";
 import type { Prisma } from "@/generated/prisma/client";
 
 const STATUSES = ["UNDER_REVIEW", "OFFER_ISSUED", "ACCEPTED", "DEPOSIT_PAID", "ENROLLED", "REJECTED", "WITHDRAWN"] as const;
@@ -8,6 +9,7 @@ const STATUSES = ["UNDER_REVIEW", "OFFER_ISSUED", "ACCEPTED", "DEPOSIT_PAID", "E
 /** Admissions board. Filters: status, programme, intake. */
 export const GET = handler(async (req) => {
   const { institutionId } = await requireStaff(...ADMISSIONS);
+  await requireModule(institutionId, "admissions");
   const p = new URL(req.url).searchParams;
   const where: Prisma.ApplicationWhereInput = { institutionId };
   const s = p.get("status");

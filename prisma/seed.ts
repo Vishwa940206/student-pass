@@ -197,7 +197,46 @@ async function main() {
       await db.application.create({ data: { institutionId: ic, leadId: lead.id, programmeId: prog.id, intake: pick(prog.intakes), status, createdAt: new Date(created.getTime() + 5 * 86_400_000), statusAt: new Date(created.getTime() + 9 * 86_400_000) } });
     }
   }
-  await db.institution.update({ where: { id: ic }, data: { displayName: "Inspire College", tagline: "Learn by building.", brandColor: "#7C5CFF" } });
+  await db.institution.update({
+    where: { id: ic },
+    data: { displayName: "Inspire College", tagline: "Learn by building.", brandColor: "#7C5CFF", logo: null, logoType: null, payhereMerchantId: null, payhereSecretEnc: null, payhereSandbox: true },
+  });
+
+  // ── Phase 2/3 demo: LMS content + attendance, knowledge, invoices, proposal (Inspire College) ──
+  const weeks = [
+    ["Week 1 · Getting started", [["Welcome and course map", "What we’ll build this term and how you’ll be assessed."], ["Tools you’ll need", "Install VS Code and Node.js.", "https://code.visualstudio.com/"]]],
+    ["Week 2 · Core ideas", [["Variables and types", "Numbers, strings and booleans, with short exercises."], ["Loops", "for and while loops, with a practice set."]]],
+  ] as const;
+  for (const [wi, [title, lessons]] of weeks.entries()) {
+    await db.courseModule.create({
+      data: { courseId: cs.id, title, position: wi, lessons: { create: lessons.map((l, li) => ({ title: l[0], body: l[1], url: l[2] ?? null, position: li })) } },
+    });
+  }
+  const firstLesson = await db.lesson.findFirstOrThrow({ where: { module: { courseId: cs.id } }, orderBy: { position: "asc" } });
+  await db.lessonProgress.create({ data: { lessonId: firstLesson.id, studentId: nethmi.id } });
+  for (const [i, status] of (["PRESENT", "PRESENT", "LATE", "ABSENT", "PRESENT"] as const).entries()) {
+    await db.attendanceSession.create({ data: { courseId: cs.id, title: `Lecture ${i + 1}`, date: day(-14 + i * 3, 9), createdById: lecturerId, records: { create: [{ studentId: nethmi.id, status }] } } });
+  }
+  await db.submission.create({ data: { assignmentId: a1.id, studentId: nethmi.id, text: "Lab answers attached.", link: "https://example.com/lab1" } });
+
+  await db.knowledgeEntry.deleteMany({ where: { institutionId: ic } });
+  await db.knowledgeEntry.createMany({ data: [
+    { institutionId: ic, title: "Intakes and deadlines", source: "Academic calendar", body: "We take students in January and May. Applications for January 2027 close on 15 December 2026; late applications are reviewed if places remain." },
+    { institutionId: ic, title: "Fees and instalments", source: "Fee schedule 2026/27", body: "BSc (Hons) Computing is LKR 950,000 a year, payable in three instalments. An acceptance deposit of LKR 50,000 secures your place and counts towards the first instalment." },
+    { institutionId: ic, title: "Entry requirements", source: "Admissions policy", body: "Degree programmes need three A/L passes. If you don’t meet that yet, the one-year Foundation route leads into year 1." },
+    { institutionId: ic, title: "Scholarships", source: "Scholarship policy", body: "Merit scholarships of up to 50% are available for strong A/L results. Apply after you receive an offer; a panel decides each case." },
+  ] });
+
+  await db.invoice.deleteMany({ where: { institutionId: ic } });
+  await db.invoice.createMany({ data: [
+    { institutionId: ic, studentId: nethmi.id, number: "INV-00001", item: "Tuition instalment 1", amountCents: 316_667_00, dueDate: day(-20, 23), status: "PAID", paidAt: day(-22), createdById: registrarId },
+    { institutionId: ic, studentId: nethmi.id, number: "INV-00002", item: "Tuition instalment 2", amountCents: 316_667_00, dueDate: day(10, 23), createdById: registrarId },
+    { institutionId: ic, studentId: nethmi.id, number: "INV-00003", item: "Lab materials", amountCents: 7_500_00, dueDate: day(-3, 23), createdById: registrarId },
+  ] });
+  const paid = await db.invoice.findFirstOrThrow({ where: { institutionId: ic, number: "INV-00001" } });
+  await db.payment.create({ data: { invoiceId: paid.id, amountCents: paid.amountCents, method: "BANK_TRANSFER", status: "SUCCEEDED", reference: "BOC-778812", recordedById: registrarId } });
+  await db.proposalRequest.deleteMany({ where: { institutionId: ic } });
+  await db.proposalRequest.create({ data: { institutionId: ic, institutionName: "Inspire College", contactName: "Dilani Jayasuriya", email: "registrar@inspire-college.example", items: ["ai", "kb", "camp"], studentsBand: "500–2,000", notes: "Interested in the assistant for the January intake." } });
 
   const counts = await Promise.all([db.institution.count(), db.offer.count(), db.user.count()]);
   console.log(`Seeded: ${counts[0]} institutions, ${counts[1]} offers, ${counts[2]} users (password: ${DEV_PASSWORD})`);

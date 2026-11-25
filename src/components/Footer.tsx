@@ -13,7 +13,7 @@ export function Footer() {
             </p>
           </div>
           <div><b className="foot-h">Students</b><Link href="/offers">Student offers</Link><Link href="/pass">My Pass</Link><Link href="/signup">Get Student Pass</Link><Link href="/campus">Campus Life</Link></div>
-          <div><b className="foot-h">Partners</b><Link href="/institution">Institution portal</Link><Link href="/pos">Merchant POS</Link><Link href="/admin">Admin</Link></div>
+          <div><b className="foot-h">Partners</b><Link href="/for-institutions">For institutions</Link><Link href="/institution">Institution portal</Link><Link href="/pos">Merchant POS</Link><Link href="/admin">Admin</Link></div>
         </div>
         <div className="foot"><span>© 2026 Student Pass · studentpass.lk</span>{process.env.NODE_ENV !== "production" && <span>Development build</span>}</div>
       </div>

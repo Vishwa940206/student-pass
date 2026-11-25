@@ -2,6 +2,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { ApiError, body, handler, json } from "@/lib/api";
 import { ADMISSIONS, found, requireStaff } from "@/lib/campus/access";
+import { requireModule } from "@/lib/os/entitlements";
 import { logActivity } from "@/lib/os/leads";
 
 const Input = z.object({ programmeId: z.string().min(1), intake: z.string().trim().min(2).max(40) });
@@ -9,6 +10,7 @@ const Input = z.object({ programmeId: z.string().min(1), intake: z.string().trim
 /** Turn an enquiry into an application (one per lead). The lead moves to APPLIED. */
 export const POST = handler(async (req, ctx: RouteContext<"/api/v1/institution/leads/[id]/application">) => {
   const { user, institutionId } = await requireStaff(...ADMISSIONS);
+  await requireModule(institutionId, "admissions");
   const { id } = await ctx.params;
   const input = await body(req, Input);
   const lead = found(await db.lead.findFirst({ where: { id, institutionId }, select: { lostAt: true, application: { select: { id: true } } } }), "Lead");

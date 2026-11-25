@@ -8,6 +8,7 @@ export const GET = handler(async () => {
   const { user, institutionId, staffRole } = await requireStaff();
   const where = { institutionId };
 
+  const inst = await db.institution.findUniqueOrThrow({ where: { id: institutionId }, select: { modules: true } });
   const [branding, students, announcements, events, clubs, courses, staff] = await Promise.all([
     brandingOf(institutionId),
     db.studentProfile.groupBy({ by: ["verificationStatus"], where, _count: true }),
@@ -39,6 +40,7 @@ export const GET = handler(async () => {
     me: { id: user.id, name: user.name, staffRole },
     institution: { id: branding.id, name: branding.displayName, shortName: branding.shortName, slug: branding.slug },
     branding,
+    modules: inst.modules,
     stats: {
       verified: count("VERIFIED"), pending: count("PENDING"),
       upcomingEvents: events.filter((e) => e.startsAt > new Date()).length,

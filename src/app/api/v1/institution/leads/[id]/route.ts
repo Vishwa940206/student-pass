@@ -2,12 +2,14 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { ApiError, body, handler, json } from "@/lib/api";
 import { ADMISSIONS, found, requireStaff } from "@/lib/campus/access";
+import { requireModule } from "@/lib/os/entitlements";
 import { leadListSelect, logActivity } from "@/lib/os/leads";
 import { label, LEAD_STAGES } from "@/lib/os/labels";
 
 /** Lead with its full activity timeline. */
 export const GET = handler(async (_req, ctx: RouteContext<"/api/v1/institution/leads/[id]">) => {
   const { institutionId } = await requireStaff(...ADMISSIONS);
+  await requireModule(institutionId, "crm");
   const { id } = await ctx.params;
   const lead = found(await db.lead.findFirst({
     where: { id, institutionId },
@@ -35,6 +37,7 @@ const Patch = z.object({
 /** Edit details, assign, move stage, mark lost / reopen. Every change lands in the timeline. */
 export const PATCH = handler(async (req, ctx: RouteContext<"/api/v1/institution/leads/[id]">) => {
   const { user, institutionId, staffRole } = await requireStaff(...ADMISSIONS);
+  await requireModule(institutionId, "crm");
   const { id } = await ctx.params;
   const p = await body(req, Patch);
   const lead = found(await db.lead.findFirst({
@@ -80,6 +83,7 @@ export const PATCH = handler(async (req, ctx: RouteContext<"/api/v1/institution/
 /** Admins can delete a lead entirely (e.g. on a data-deletion request). */
 export const DELETE = handler(async (_req, ctx: RouteContext<"/api/v1/institution/leads/[id]">) => {
   const { institutionId } = await requireStaff("ADMIN");
+  await requireModule(institutionId, "crm");
   const { id } = await ctx.params;
   const { count } = await db.lead.deleteMany({ where: { id, institutionId } });
   found(count || null, "Lead");

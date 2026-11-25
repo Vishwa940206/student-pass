@@ -5,6 +5,8 @@ import { Icon } from "@/components/Icon";
 import { Tabs } from "@/components/Tabs";
 import { api, ApiFailure, toast } from "@/lib/client";
 import { fmtDate, fmtDateTime, relDays } from "@/lib/format";
+import { Chat } from "@/components/Chat";
+import { CourseView, FeesView } from "./CampusExtras";
 
 interface Grade { marks: number; feedback: string | null; gradedAt: string }
 interface Assignment { id: string; title: string; description: string; dueAt: string; maxMarks: number; grade: Grade | null }
@@ -14,13 +16,19 @@ interface Club { id: string; name: string; description: string; members: number;
 interface Notice { id: string; title: string; body: string; pinned: boolean; createdAt: string; author: { name: string } }
 interface Campus { loadedAt: number; institution: { name: string; shortName: string }; branding: { tagline: string | null; brandColor: string | null; logoUrl: string | null }; announcements: Notice[]; events: CampusEvent[]; clubs: Club[]; courses: Course[] }
 
-const TABS = [["today", "Today"], ["courses", "Courses"], ["events", "Events"], ["clubs", "Clubs"], ["notices", "Notices"]] as const;
+const TABS = [["today", "Today"], ["courses", "Courses"], ["events", "Events"], ["clubs", "Clubs"], ["notices", "Notices"], ["fees", "Fees"], ["ask", "Ask"]] as const;
 type Tab = (typeof TABS)[number][0];
 
 export function CampusView() {
   const [data, setData] = useState<Campus | null>(null);
   const [blocked, setBlocked] = useState<{ status: number; code: string; message: string } | null>(null);
-  const [tab, setTab] = useState<Tab>("today");
+  // ?tab=fees (e.g. returning from payment). Safe to read here: the first render shows
+  // "Loading…" on server and client alike, so the tab never affects hydration.
+  const [tab, setTab] = useState<Tab>(() => {
+    const t = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("tab");
+    return TABS.some(([v]) => v === t) ? (t as Tab) : "today";
+  });
+  const [courseId, setCourseId] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = useCallback(() => {
@@ -98,10 +106,11 @@ export function CampusView() {
         </div>
       )}
 
-      {tab === "courses" && (
+      {tab === "courses" && courseId && <CourseView id={courseId} back={() => setCourseId(null)} />}
+      {tab === "courses" && !courseId && (
         data.courses.length ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {data.courses.map((c) => <CourseCard key={c.id} c={c} />)}
+            {data.courses.map((c) => <CourseCard key={c.id} c={c} open={() => setCourseId(c.id)} />)}
           </div>
         ) : <div className="empty">You’re not enrolled in any courses yet. Your lecturers add you using your student number.</div>
       )}
@@ -146,6 +155,12 @@ export function CampusView() {
         ) : <div className="empty">No clubs yet.</div>
       )}
 
+      {tab === "fees" && <FeesView />}
+      {tab === "ask" && (
+        <Chat endpoint="/campus/chat" title={`Ask ${data.institution.shortName}`}
+          greeting={`Hi there! I can help with intakes, fees, policies and your own deadlines and invoices.`}
+          suggestions={["What’s due this week?", "Do I owe anything?", "How do scholarships work?"]} />
+      )}
       {tab === "notices" && (
         data.announcements.length ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -170,7 +185,7 @@ function NoticeCard({ n }: { n: Notice }) {
   );
 }
 
-function CourseCard({ c }: { c: Course }) {
+function CourseCard({ c, open }: { c: Course; open: () => void }) {
   const graded = c.assignments.filter((a) => a.grade);
   const pct = graded.length ? Math.round((100 * graded.reduce((s, a) => s + a.grade!.marks / a.maxMarks, 0)) / graded.length) : null;
   return (
@@ -182,6 +197,7 @@ function CourseCard({ c }: { c: Course }) {
         </div>
         <h3 className="h-card" style={{ marginTop: 10 }}>{c.name}</h3>
         {c.lecturer && <div className="tiny">{c.lecturer.name}</div>}
+        <button className="btn btn-mint btn-sm" style={{ marginTop: 10 }} onClick={open}>Open course</button>
       </div>
       {c.assignments.length ? c.assignments.map((a) => (
         <div key={a.id} className="list-row">

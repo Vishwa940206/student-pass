@@ -19,7 +19,8 @@ Next.js 16 (App Router, TypeScript) · PostgreSQL · Prisma 7 (`@prisma/adapter-
 | `/pos` | merchant staff | Branch, bill amount, scan (camera via BarcodeDetector) or paste QR, apply / complete / cancel, ledger with refunds |
 | `/campus` | verified students | Campus Life: due-soon deadlines, courses with assignments and grades, events (RSVP with capacity), clubs (join/leave), notices |
 | `/institution` | institution staff | **Institution OS**: BI brain (KPIs + next best actions), analytics, market intelligence, CRM, admissions, student verification, notices, events, clubs, courses (enrolment, assignments, gradebook), staff, white-label settings and programmes. Tabs depend on the staff role |
-| `/enquire/[slug]` | public | The institution's branded enquiry page. Submissions become CRM leads assigned to the least-busy counsellor |
+| `/enquire/[slug]` | public | The institution's branded enquiry page, with the AI assistant when it's set up. Submissions and assistant hand-overs become CRM leads assigned to the least-busy counsellor |
+| `/for-institutions` | public | B2B services catalogue and proposal request |
 | `/account` | everyone signed in | Change password (signs out other devices) |
 | `/admin` | platform admins | Verification queue (all institutions); create each institution's first admin |
 
@@ -74,11 +75,21 @@ For local dev, set `DATABASE_URL="postgresql://postgres:postgres@localhost:54329
 
 **Institution OS.** Enquiries (`Lead`) move New → Contacted → Counselling, then via an `Application` through Under review → Offer issued → Accepted → Deposit paid → Enrolled. The lead's stage follows its application, and rejected or withdrawn applications mark the lead lost. Every change is written to the lead's timeline. Counsellors can reassign only their own leads. The BI brain's actions (uncontacted enquiries, stalled applications, waiting verifications, overdue grading, nearly full events) are computed from live records, filtered by role. Branding (display name, tagline, colour, logo as PNG/JPEG/WebP ≤ 256 KB, no SVG) appears on the portal, Campus Life, the enquiry page and the preview.
 
+**LMS.** Courses have modules and lessons (published or draft). Students mark lessons done, submit assignments (text and/or link; locked once graded) and see their attendance. Staff take attendance per session (present, late, absent, excused). Learners under 75% attendance are flagged at risk.
+
+**Fees and payments.** Admins bill students by student number (`INV-00001`, sequential per institution under an advisory lock), record cash or bank payments, and void unpaid invoices. Overdue is derived from the due date. Online payment uses PayHere hosted checkout with each institution's own merchant account. The merchant secret is AES-256-GCM encrypted (`SETTINGS_ENCRYPTION_KEY`). An invoice is marked paid only by `/api/v1/payments/payhere/notify` after checking the `md5sig`, merchant, amount and currency. Replays are harmless, and a chargeback reopens the invoice.
+
+**AI assistant.** `src/lib/ai/assistant.ts` calls `claude-opus-5-5` (low effort, structured output, server-side refusal fallback) with the institution's approved knowledge only. Signed-in students also get their own deadlines, grades and invoices as context. Replies list the knowledge entries they used. When the knowledge doesn't cover a question, the reply flags a hand-over, and on the public page the visitor can leave contact details, which creates a CRM lead with the transcript. Needs `ANTHROPIC_API_KEY`. Without it, the assistant is hidden or returns a clean 503.
+
+**B2B.** The platform admin switches Institution OS modules per institution (`Institution.modules`), and the API enforces them (`requireModule`). Proposal requests from the portal's Services tab or `/for-institutions` appear in `/admin`.
+
+**Environment variables** (production): `DATABASE_URL`, `PASS_TOKEN_SECRET`, plus `SETTINGS_ENCRYPTION_KEY` (`openssl rand -base64 32`; needed to save payment secrets; don't change it once secrets are saved) and `ANTHROPIC_API_KEY` (AI assistant).
+
 **Rate limiting** (`src/lib/rate-limit.ts`) uses Postgres counters shared by all serverless instances: login 30 per 15 min per IP and 10 per 15 min per email, signup 10 per hour per IP, enquiries 5 per hour per IP and 500 per day per institution, password changes 10 per 15 min per user. The enquiry form also has a honeypot field.
 
 **Tenant isolation.** Every campus table has an `institutionId`. Handlers take it from `requireCampusStudent()` / `requireStaff()` in `src/lib/campus/access.ts`, never from the request, and include it in every query, so another institution's ids return 404. Students see Campus Life only once verified and while their pass is valid.
 
-**Tests.** Against a server on a freshly seeded **dev** database: `scripts/smoke-campus.sh` (46 checks: access rules, isolation, RSVP capacity, grading, staff lifecycle) and `scripts/smoke-os.sh` (55 checks: roles, CRM/admissions flow, isolation, branding and logo validation, public enquiries, rate limits).
+**Tests.** Against a server on a freshly seeded **dev** database: `scripts/smoke-campus.sh` (46 checks: access rules, isolation, RSVP capacity, grading, staff lifecycle) and `scripts/smoke-os.sh` (55 checks: roles, CRM/admissions flow, isolation, branding and logo validation, public enquiries, rate limits) and `scripts/smoke-p23.sh` (64 checks: LMS, fees, PayHere signature/amount/replay/chargeback handling, AI knowledge, proposals, module licensing; start the server with `SETTINGS_ENCRYPTION_KEY` set and no `ANTHROPIC_API_KEY`).
 
 ## Using Supabase (hosted Postgres)
 

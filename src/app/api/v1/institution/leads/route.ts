@@ -2,6 +2,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { ApiError, body, handler, json } from "@/lib/api";
 import { ADMISSIONS, found, requireStaff } from "@/lib/campus/access";
+import { requireModule } from "@/lib/os/entitlements";
 import { leadListSelect, logActivity } from "@/lib/os/leads";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -11,6 +12,7 @@ const SOURCES = ["WEBSITE", "STUDENT_PASS", "INSTAGRAM", "FACEBOOK", "WHATSAPP",
 /** CRM list. Filters: stage, source, counsellor (id | "me" | "none"), programme, q, status (open | lost | all). */
 export const GET = handler(async (req) => {
   const { user, institutionId } = await requireStaff(...ADMISSIONS);
+  await requireModule(institutionId, "crm");
   const p = new URL(req.url).searchParams;
   const where: Prisma.LeadWhereInput = { institutionId };
   const status = p.get("status") ?? "open";
@@ -49,6 +51,7 @@ export const LeadInput = z.object({
 /** Add an enquiry by hand (walk-in, phone call, fair…). */
 export const POST = handler(async (req) => {
   const { user, institutionId, staffRole } = await requireStaff(...ADMISSIONS);
+  await requireModule(institutionId, "crm");
   const input = await body(req, LeadInput);
   if (!input.phone && !input.email) throw new ApiError(400, "CONTACT", "Add a phone number or email");
   if (input.programmeId) found(await db.programme.findFirst({ where: { id: input.programmeId, institutionId } }), "Programme");

@@ -5,7 +5,7 @@ import { CAMPUS, found, requireStaff } from "@/lib/campus/access";
 
 async function assignmentIn(id: string, institutionId: string) {
   return found(
-    await db.assignment.findFirst({ where: { id, course: { institutionId } }, select: { id: true, courseId: true, title: true, maxMarks: true } }),
+    await db.assignment.findFirst({ where: { id, course: { institutionId } }, select: { id: true, courseId: true, title: true, maxMarks: true, dueAt: true } }),
     "Assignment",
   );
 }
@@ -23,13 +23,14 @@ export const GET = handler(async (_req, ctx: RouteContext<"/api/v1/institution/a
         select: {
           id: true, studentNumber: true, user: { select: { name: true } },
           grades: { where: { assignmentId: id }, select: { marks: true, feedback: true } },
+          submissions: { where: { assignmentId: id }, select: { text: true, link: true, submittedAt: true } },
         },
       },
     },
   });
   return json({
     assignment: a,
-    students: rows.map(({ student: s }) => ({ id: s.id, studentNumber: s.studentNumber, name: s.user.name, grade: s.grades[0] ?? null })),
+    students: rows.map(({ student: s }) => ({ id: s.id, studentNumber: s.studentNumber, name: s.user.name, grade: s.grades[0] ?? null, submission: s.submissions[0] ?? null })),
   });
 });
 

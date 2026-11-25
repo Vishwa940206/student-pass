@@ -1,12 +1,14 @@
 import { db } from "@/lib/db";
 import { handler, json } from "@/lib/api";
 import { ADMISSIONS, requireStaff } from "@/lib/campus/access";
+import { requireModule } from "@/lib/os/entitlements";
 
 const STAGES = ["NEW", "CONTACTED", "COUNSELLING", "APPLIED", "OFFER", "ENROLLED"] as const;
 
 /** Admissions + campus analytics for the institution. `days` = lookback for leads (default 180). */
 export const GET = handler(async (req) => {
   const { institutionId } = await requireStaff(...ADMISSIONS);
+  await requireModule(institutionId, "analytics");
   const days = Math.min(730, Math.max(7, Number(new URL(req.url).searchParams.get("days")) || 180));
   const since = new Date(Date.now() - days * 86_400_000);
   const where = { institutionId, createdAt: { gte: since } };

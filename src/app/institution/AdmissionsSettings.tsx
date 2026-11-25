@@ -64,7 +64,7 @@ export function AdmissionsPanel({ initial }: { initial?: Record<string, string> 
 
 interface Branding { slug: string; name: string; displayName: string; tagline: string | null; brandColor: string | null; logoUrl: string | null }
 
-export function SettingsPanel({ onBrandingChange }: { onBrandingChange: () => void }) {
+export function SettingsPanel({ onBrandingChange, extra }: { onBrandingChange: () => void; extra?: React.ReactNode }) {
   const [b, setB] = useState<Branding | null>(null);
   const [programmes, setProgrammes] = useState<Programme[] | null>(null);
   const [color, setColor] = useState("#12C16E");
@@ -124,6 +124,7 @@ export function SettingsPanel({ onBrandingChange }: { onBrandingChange: () => vo
       </form>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        {extra}
         <div className="card panel">
           <h3 className="h-card">Public enquiry page</h3>
           <p className="muted small" style={{ margin: 0 }}>Share this link on your website, Instagram bio or WhatsApp. Enquiries land in the CRM and go to the least-busy counsellor.</p>

@@ -41,6 +41,9 @@ model User {
   gradesGiven      Grade[]
   leadsOwned       Lead[]          @relation("Counsellor")
   leadActivities   LeadActivity[]
+  sessionsTaken    AttendanceSession[]
+  invoicesCreated  Invoice[]
+  paymentsRecorded Payment[]
 }
 
 model Session {
@@ -79,6 +82,14 @@ model Institution {
   logoType      String?
   logoUpdatedAt DateTime?
 
+  // Licensed Institution OS modules (B2B entitlements), switched by the platform admin.
+  modules String[] @default(["crm", "admissions", "analytics", "market", "lms", "fees", "ai", "payments"])
+
+  // Online payments (PayHere). The secret is AES-256-GCM encrypted (src/lib/crypto.ts).
+  payhereMerchantId String?
+  payhereSecretEnc  String?
+  payhereSandbox    Boolean @default(true)
+
   students       StudentProfile[]
   sponsoredOffers Offer[]
 
@@ -90,6 +101,10 @@ model Institution {
   programmes    Programme[]
   leads         Lead[]
   applications  Application[]
+  invoices      Invoice[]
+  knowledge     KnowledgeEntry[]
+  conversations Conversation[]
+  proposals     ProposalRequest[]
 }
 
 enum VerificationStatus {
@@ -128,6 +143,11 @@ model StudentProfile {
   clubs      ClubMember[]
   enrolments Enrolment[]
   grades     Grade[]
+  progress    LessonProgress[]
+  attendance  Attendance[]
+  submissions Submission[]
+  invoices    Invoice[]
+  chats       Conversation[]
 
   @@unique([institutionId, studentNumber])
 }
@@ -402,6 +422,8 @@ model Course {
 
   enrolments  Enrolment[]
   assignments Assignment[]
+  modules     CourseModule[]
+  sessions    AttendanceSession[]
 
   @@unique([institutionId, code])
 }
@@ -427,7 +449,8 @@ model Assignment {
   maxMarks    Int      @default(100)
   createdAt   DateTime @default(now())
 
-  grades Grade[]
+  grades      Grade[]
+  submissions Submission[]
 
   @@index([courseId, dueAt])
 }
@@ -514,8 +537,9 @@ model Lead {
   lastActivityAt DateTime    @default(now())
   createdAt      DateTime    @default(now())
 
-  activities  LeadActivity[]
-  application Application?
+  activities    LeadActivity[]
+  application   Application?
+  conversations Conversation[]
 
   @@index([institutionId, stage])
   @@index([institutionId, createdAt])
@@ -578,4 +602,227 @@ model RateLimit {
   key         String   @id
   windowStart DateTime
   count       Int
+}
+
+// ───────────────────────── LMS: content, progress, attendance, submissions ─────────────────────────
+
+model CourseModule {
+  id        String   @id @default(cuid())
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title     String
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  lessons Lesson[]
+
+  @@index([courseId, position])
+}
+
+model Lesson {
+  id        String       @id @default(cuid())
+  moduleId  String
+  module    CourseModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  title     String
+  body      String       @default("")
+  url       String? // video, slides or reading link
+  position  Int          @default(0)
+  published Boolean      @default(true)
+  createdAt DateTime     @default(now())
+
+  progress LessonProgress[]
+
+  @@index([moduleId, position])
+}
+
+model LessonProgress {
+  lessonId    String
+  lesson      Lesson         @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  studentId   String
+  student     StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  completedAt DateTime       @default(now())
+
+  @@id([lessonId, studentId])
+}
+
+enum AttendanceStatus {
+  PRESENT
+  LATE
+  ABSENT
+  EXCUSED
+}
+
+model AttendanceSession {
+  id          String   @id @default(cuid())
+  courseId    String
+  course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  date        DateTime
+  title       String
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+
+  records Attendance[]
+
+  @@index([courseId, date])
+}
+
+model Attendance {
+  sessionId String
+  session   AttendanceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  studentId String
+  student   StudentProfile    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  status    AttendanceStatus
+
+  @@id([sessionId, studentId])
+}
+
+model Submission {
+  assignmentId String
+  assignment   Assignment     @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  text         String         @default("")
+  link         String?
+  submittedAt  DateTime       @default(now()) @updatedAt
+
+  @@id([assignmentId, studentId])
+}
+
+// ───────────────────────── Fees & payments ─────────────────────────
+
+enum InvoiceStatus {
+  DUE // overdue = DUE and dueDate has passed (derived, not stored)
+  PAID
+  VOID
+}
+
+model Invoice {
+  id            String         @id @default(cuid())
+  institutionId String
+  institution   Institution    @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  number        String // INV-00001, per institution
+  studentId     String
+  student       StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  item          String
+  amountCents   Int
+  dueDate       DateTime
+  status        InvoiceStatus  @default(DUE)
+  paidAt        DateTime?
+  createdById   String
+  createdBy     User           @relation(fields: [createdById], references: [id])
+  createdAt     DateTime       @default(now())
+
+  payments Payment[]
+
+  @@unique([institutionId, number])
+  @@index([institutionId, status])
+  @@index([studentId])
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  CARD_ONLINE // through the payment gateway
+  OTHER
+}
+
+enum PaymentStatus {
+  PENDING // checkout started, waiting for the gateway's signed notification
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+model Payment {
+  id               String        @id @default(cuid())
+  invoiceId        String
+  invoice          Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  amountCents      Int
+  method           PaymentMethod
+  status           PaymentStatus
+  reference        String? // receipt no. / bank ref (manual) or gateway payment id
+  gatewayOrderId   String?       @unique // the order_id we send to the gateway
+  gatewayStatus    String? // last raw status_code from the gateway
+  recordedById     String? // staff who recorded a manual payment
+  recordedBy       User?         @relation(fields: [recordedById], references: [id], onDelete: SetNull)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([invoiceId])
+}
+
+// ───────────────────────── Conversational AI ─────────────────────────
+
+model KnowledgeEntry {
+  id            String      @id @default(cuid())
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  title         String
+  body          String
+  source        String? // e.g. "Fee schedule 2026/27"
+  approved      Boolean     @default(true) // only approved entries are used by the assistant
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([institutionId, approved])
+}
+
+enum ChatChannel {
+  PUBLIC // enquiry page, not signed in
+  STUDENT // Campus Life, signed-in verified student
+}
+
+model Conversation {
+  id            String          @id @default(cuid())
+  institutionId String
+  institution   Institution     @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  channel       ChatChannel
+  studentId     String?
+  student       StudentProfile? @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  leadId        String? // set when the conversation was handed to a counsellor
+  lead          Lead?           @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  handedOver    Boolean         @default(false)
+  answered      Int             @default(0) // replies grounded in approved knowledge
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  messages ChatMessage[]
+
+  @@index([institutionId, createdAt])
+}
+
+model ChatMessage {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String // "user" | "assistant"
+  content        String
+  sources        String[] // KnowledgeEntry ids the answer used
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId, createdAt])
+}
+
+// ───────────────────────── B2B services ─────────────────────────
+
+enum ProposalStatus {
+  NEW
+  CONTACTED
+  WON
+  LOST
+}
+
+model ProposalRequest {
+  id              String         @id @default(cuid())
+  institutionId   String? // set when requested from inside the portal
+  institution     Institution?   @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  institutionName String
+  contactName     String
+  email           String
+  studentsBand    String?
+  items           String[] // service ids from src/lib/os/services.ts
+  notes           String?
+  status          ProposalStatus @default(NEW)
+  createdAt       DateTime       @default(now())
 }

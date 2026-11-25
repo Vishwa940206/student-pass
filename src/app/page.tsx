@@ -23,7 +23,7 @@ const COMING = [
   ["var(--lilac)", "i-path", "Pathways", "Find your course, compare programmes and apply once.", "/preview#/pathways"],
   ["var(--pink)", "i-book", "Campus Life", "Courses, assignments, grades, clubs and events in one place.", "/campus"],
   ["var(--cyan)", "i-brief", "Jobs, housing & more", "Internships, student housing, transport and data plans.", "/preview#/app?t=more"],
-  ["var(--sun)", "i-brain", "Institution portal", "Verify students and run notices, events, clubs, courses and grades.", "/institution"],
+  ["var(--sun)", "i-brain", "Institution OS", "CRM, admissions, LMS, fees, analytics and an AI assistant under your brand.", "/for-institutions"],
   ["var(--mint)", "i-biz", "For merchants", "Reach every verified student with scan-to-sale offers.", "/preview#/business"],
 ] as const;
 

@@ -2,18 +2,20 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, toast } from "@/lib/client";
 import { colomboIso, fmtDateTime } from "@/lib/format";
+import { Tabs } from "@/components/Tabs";
 import { remove, submit, type PortalCourse, type StaffMember } from "./InstitutionView";
+import { AttendancePanel, ContentEditor } from "./LmsPanels";
 
 interface Enrolled { id: string; studentNumber: string; name: string; email: string; verificationStatus: string }
-interface GradeRow { id: string; studentNumber: string; name: string; grade: { marks: number; feedback: string | null } | null }
+interface GradeRow { id: string; studentNumber: string; name: string; grade: { marks: number; feedback: string | null } | null; submission: { text: string; link: string | null; submittedAt: string } | null }
 
 const str = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 
-export function CoursesPanel({ courses, staff, reload }: { courses: PortalCourse[]; staff: StaffMember[]; reload: () => void }) {
+export function CoursesPanel({ courses, staff, reload, lms = false }: { courses: PortalCourse[]; staff: StaffMember[]; reload: () => void; lms?: boolean }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const open = courses.find((c) => c.id === openId) ?? null;
 
-  if (open) return <CourseDetail course={open} back={() => setOpenId(null)} reload={reload} />;
+  if (open) return <CourseDetail course={open} back={() => setOpenId(null)} reload={reload} lms={lms} />;
 
   return (
     <div className="panel-grid">
@@ -50,8 +52,9 @@ export function CoursesPanel({ courses, staff, reload }: { courses: PortalCourse
   );
 }
 
-function CourseDetail({ course, back, reload }: { course: PortalCourse; back: () => void; reload: () => void }) {
+function CourseDetail({ course, back, reload, lms }: { course: PortalCourse; back: () => void; reload: () => void; lms: boolean }) {
   const [students, setStudents] = useState<Enrolled[] | null>(null);
+  const [view, setView] = useState<"work" | "content" | "attendance">("work");
   const [gradingId, setGradingId] = useState<string | null>(null);
 
   const loadRoster = useCallback(() => {
@@ -71,8 +74,11 @@ function CourseDetail({ course, back, reload }: { course: PortalCourse; back: ()
         <span style={{ flex: 1 }} />
         <button className="btn btn-ghost btn-sm" onClick={() => remove(`/institution/courses/${course.id}`, `${course.code} with its assignments and grades`, () => { back(); reload(); })}>Delete course</button>
       </div>
+      {lms && <Tabs tabs={[["work", "Assignments & class list"], ["content", "Content"], ["attendance", "Attendance"]] as const} value={view} onChange={setView} label="Course sections" />}
+      {view === "content" && <ContentEditor courseId={course.id} enrolled={course.enrolled} />}
+      {view === "attendance" && <AttendancePanel courseId={course.id} />}
 
-      <div className="panel-grid">
+      {view === "work" && <div className="panel-grid">
         <div className="card panel">
           <h3 className="h-card">Assignments</h3>
           {course.assignments.map((a) => (
@@ -130,7 +136,7 @@ function CourseDetail({ course, back, reload }: { course: PortalCourse; back: ()
             </div>
           ))}
         </div>
-      </div>
+      </div>}
     </>
   );
 }
@@ -171,12 +177,14 @@ function Gradebook({ assignmentId, back }: { assignmentId: string; back: () => v
       {data.students.length ? (
         <div style={{ overflowX: "auto" }}>
           <table className="gradebook">
-            <thead><tr><th>Student</th><th>Number</th><th>Marks</th><th>Feedback (students see this)</th></tr></thead>
+            <thead><tr><th>Student</th><th>Submission</th><th>Marks</th><th>Feedback (students see this)</th></tr></thead>
             <tbody>
               {data.students.map((s) => (
                 <tr key={s.id}>
                   <td>{s.name}</td>
-                  <td className="tiny">{s.studentNumber}</td>
+                  <td className="tiny" style={{ maxWidth: 260 }}>{s.submission
+                    ? <>{s.submission.text && <div style={{ whiteSpace: "pre-line" }}>{s.submission.text.slice(0, 300)}</div>}{s.submission.link && <a href={s.submission.link} target="_blank" rel="noreferrer">Open link</a>}<div>{new Date(s.submission.submittedAt).toLocaleDateString("en-GB")}</div></>
+                    : <span className="muted">Not submitted · {s.studentNumber}</span>}</td>
                   <td><input className="input grade-input" type="number" min={0} max={data.assignment.maxMarks} aria-label={`Marks for ${s.name}`}
                     value={draft[s.id]?.marks ?? ""} onChange={(e) => setDraft((d) => ({ ...d, [s.id]: { ...d[s.id], marks: e.target.value } }))} /></td>
                   <td><input className="input" maxLength={2000} aria-label={`Feedback for ${s.name}`}

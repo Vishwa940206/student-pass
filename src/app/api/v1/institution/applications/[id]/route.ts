@@ -2,6 +2,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { handler, body, json } from "@/lib/api";
 import { ADMISSIONS, found, requireStaff } from "@/lib/campus/access";
+import { requireModule } from "@/lib/os/entitlements";
 import { logActivity, stageForStatus } from "@/lib/os/leads";
 import { APP_STATUSES, label } from "@/lib/os/labels";
 
@@ -13,6 +14,7 @@ const Input = z.object({
 /** Move an application. The lead's stage follows; rejected / withdrawn marks the lead lost. */
 export const PATCH = handler(async (req, ctx: RouteContext<"/api/v1/institution/applications/[id]">) => {
   const { user, institutionId } = await requireStaff(...ADMISSIONS);
+  await requireModule(institutionId, "admissions");
   const { id } = await ctx.params;
   const { status, note } = await body(req, Input);
   const app = found(await db.application.findFirst({ where: { id, institutionId }, select: { status: true, leadId: true } }), "Application");

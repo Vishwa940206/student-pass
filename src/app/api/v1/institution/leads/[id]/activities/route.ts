@@ -2,6 +2,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { body, handler, json } from "@/lib/api";
 import { ADMISSIONS, found, requireStaff } from "@/lib/campus/access";
+import { requireModule } from "@/lib/os/entitlements";
 import { logActivity } from "@/lib/os/leads";
 
 const Input = z.object({ kind: z.enum(["NOTE", "CALL", "WHATSAPP", "EMAIL", "MEETING"]), body: z.string().trim().min(1).max(4000) });
@@ -9,6 +10,7 @@ const Input = z.object({ kind: z.enum(["NOTE", "CALL", "WHATSAPP", "EMAIL", "MEE
 /** Log a call, message, meeting or note. A first contact moves a NEW lead to CONTACTED. */
 export const POST = handler(async (req, ctx: RouteContext<"/api/v1/institution/leads/[id]/activities">) => {
   const { user, institutionId } = await requireStaff(...ADMISSIONS);
+  await requireModule(institutionId, "crm");
   const { id } = await ctx.params;
   const a = await body(req, Input);
   const lead = found(await db.lead.findFirst({ where: { id, institutionId }, select: { stage: true } }), "Lead");

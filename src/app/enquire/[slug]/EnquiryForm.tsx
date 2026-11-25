@@ -3,8 +3,10 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, ApiFailure, formatLkr } from "@/lib/client";
 import { DISTRICTS, label, STUDY_MODES } from "@/lib/os/labels";
+import { Chat } from "@/components/Chat";
 
 interface Data {
+  assistant: boolean;
   branding: { displayName: string; tagline: string | null; brandColor: string | null; logoUrl: string | null; shortName: string };
   programmes: { id: string; name: string; mode: string; durationMonths: number | null; feeCents: number | null; intakes: string[] }[];
 }
@@ -89,6 +91,13 @@ export function EnquiryForm() {
           </form>
         )}
 
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        {d.assistant && (
+          <Chat endpoint={`/public/institutions/${encodeURIComponent(slug)}/chat`} title="Ask a question"
+            greeting={`Hi! I can help with programmes, intakes, fees and scholarships at ${b.displayName}.`}
+            suggestions={["When is the next intake?", "What are the fees?", "Do you offer scholarships?"]}
+            handoverEndpoint={(cid) => `/public/institutions/${encodeURIComponent(slug)}/chat/${cid}/handover`} />
+        )}
         <div className="card panel">
           <h3 className="h-card">Programmes</h3>
           {d.programmes.map((p) => (
@@ -98,6 +107,7 @@ export function EnquiryForm() {
             </div>
           ))}
           {!d.programmes.length && <p className="muted small" style={{ margin: 0 }}>Programmes will be listed here soon.</p>}
+        </div>
         </div>
       </div>
     </div>

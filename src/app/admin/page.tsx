@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { VerificationQueue } from "./VerificationQueue";
 import { InstitutionAccounts } from "./InstitutionAccounts";
+import { PlatformOs } from "./PlatformOs";
 
 export const metadata: Metadata = { title: "Verifications" };
 
@@ -14,6 +15,7 @@ export default function AdminPage() {
         </div>
         <VerificationQueue />
         <InstitutionAccounts />
+        <PlatformOs />
       </section>
     </div>
   );
