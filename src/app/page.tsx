@@ -14,6 +14,19 @@ const TRUST = [
   ["Freeze it instantly", "Lost your phone? Freeze your pass in one tap, and scans are declined until you unfreeze it."],
 ] as const;
 
+// Interactive previews of what's coming, served from /preview (sample data only).
+const COMING = [
+  ["var(--sun)", "i-cart", "Student Shop", "Course books, laptops and campus gear at student prices.", "/preview#/app?t=shop"],
+  ["var(--cyan)", "i-wallet", "Pay & fees", "Pay fees and everyday costs, with a wallet and spending view.", "/preview#/app?t=pay"],
+  ["var(--coral)", "i-coin", "Student loans", "Tuition, device and study-abroad finance with a clear calculator.", "/preview#/p?id=loans"],
+  ["var(--mint)", "i-star", "Pass Points", "Earn on what you already do and spend points on perks.", "/preview#/app?t=rewards"],
+  ["var(--lilac)", "i-path", "Pathways", "Find your course, compare programmes and apply once.", "/preview#/pathways"],
+  ["var(--pink)", "i-book", "Campus Life", "Courses, assignments, grades, clubs and events in one place.", "/preview#/life"],
+  ["var(--cyan)", "i-brief", "Jobs, housing & more", "Internships, student housing, transport and data plans.", "/preview#/app?t=more"],
+  ["var(--sun)", "i-brain", "Institution OS", "One platform for enquiries, enrolment and learning.", "/preview#/suite"],
+  ["var(--mint)", "i-biz", "For merchants", "Reach every verified student with scan-to-sale offers.", "/preview#/business"],
+] as const;
+
 export default function Home() {
   return (
     <div className="wrap">
@@ -54,6 +67,30 @@ export default function Home() {
               <h3 className="h-card">{h}</h3>
               <p className="muted small">{p}</p>
             </div>
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <div className="sec-head">
+          <div className="l">
+            <span className="eyebrow">Coming soon</span>
+            <h2 className="h-sec">Everything a student needs, in one place.</h2>
+          </div>
+        </div>
+        <p className="muted" style={{ margin: "-8px 0 20px", maxWidth: 560 }}>
+          Try interactive previews of what we’re building next. They use sample data, so nothing you do there is saved or charged.
+        </p>
+        <div className="coming">
+          {COMING.map(([c, icon, h, p, href]) => (
+            <a key={h} className="card trust-c hover" href={href}>
+              <span className="path-ic" style={{ background: c }}><Icon name={icon} /></span>
+              <h3 className="h-card">{h}</h3>
+              <p className="muted small">{p}</p>
+              <span className="small" style={{ fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}>
+                Preview <Icon name="i-arrow" size={14} />
+              </span>
+            </a>
           ))}
         </div>
       </section>

@@ -8,6 +8,10 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/**": ["./prisma/certs/**"],
   },
+  // The design preview is a static page in public/preview/ (built by scripts/build-preview.mjs).
+  async rewrites() {
+    return [{ source: "/preview", destination: "/preview/index.html" }];
+  },
 };
 
 export default nextConfig;

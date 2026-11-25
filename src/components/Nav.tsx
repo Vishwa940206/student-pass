@@ -65,6 +65,10 @@ export function Nav() {
             {label}
           </Link>
         ))}
+        {/* Previews of what's coming (static page, so plain links rather than <Link>). */}
+        <a href="/preview#/app?t=shop">Shop</a>
+        <a href="/preview#/life">Campus Life</a>
+        <a href="/preview#/suite">Institutions</a>
       </nav>
       <div className="nav-right">
         <button className="icon-btn" onClick={toggleTheme} aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}>
