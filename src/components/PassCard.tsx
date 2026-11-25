@@ -3,8 +3,8 @@ import { Icon, Logo } from "@/components/Icon";
 import { skinById } from "@/lib/skins";
 
 /** The Student Pass card, as designed in the prototype. */
-export function PassCard({ skin, name, meta, middle, maxWidth }: {
-  skin: string; name: string; meta: string; middle?: ReactNode; maxWidth?: number;
+export function PassCard({ skin, name, meta, middle, maxWidth, edition }: {
+  skin: string; name: string; meta: string; middle?: ReactNode; maxWidth?: number; edition?: string;
 }) {
   const k = skinById(skin);
   return (
@@ -18,7 +18,7 @@ export function PassCard({ skin, name, meta, middle, maxWidth }: {
     >
       <div className="row">
         <span className="wm"><Logo size={20} color={k.mark} stroke={k.s} />STUDENT PASS</span>
-        <span className="edition">{k.ed}</span>
+        <span className="edition">{edition ?? k.ed}</span>
       </div>
       {middle}
       <div className="row" style={{ alignItems: "flex-end" }}>

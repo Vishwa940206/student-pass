@@ -33,6 +33,7 @@ export interface Me {
     verificationStatus: "PENDING" | "VERIFIED" | "REJECTED" | "EXPIRED";
     passState: "ACTIVE" | "FROZEN";
     institution: { shortName: string };
+    cardSkin?: string;
   };
   staff: null | { staffRole: "ADMIN" | "LECTURER"; institution: { id: string; name: string; shortName: string } };
 }

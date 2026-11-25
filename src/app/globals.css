@@ -22,12 +22,11 @@ video.scanner { width: 100%; border-radius: var(--r-md); background: #000; aspec
 @media (max-width: 860px) { .pass-main, .pass-side { grid-column: 1 / -1; } }
 
 /* ── Mobile tab bar ──
-   Four equal tabs. "My Pass" (or POS / Verify) is a mint pill inside the bar rather than
-   a raised button: with four tabs a raised centre button can't actually be centred, and it
-   covered the content above the bar. The bar is solid so page text never shows through the labels. */
+   Five equal tabs as in the design (Home · Offers · My Pass · Shop · More). The centre action
+   is a mint pill inside the bar rather than a raised button, so it never covers content. The bar is solid so page text never shows through the labels. */
 @media (max-width: 1024px) {
   .appbar {
-    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: center; gap: 4px;
+    display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: center; gap: 4px;
     padding: 8px calc(10px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-left));
     background: var(--bg); backdrop-filter: none; -webkit-backdrop-filter: none;
     box-shadow: 0 -6px 24px rgb(0 0 0 / .05);
@@ -39,7 +38,7 @@ video.scanner { width: 100%; border-radius: var(--r-md); background: #000; aspec
   }
   /* Icon sits in a pill: highlighted for the current tab, mint for the main action. */
   .appbar a > svg, .appbar button > svg, .appbar .fab {
-    box-sizing: content-box; width: 22px; height: 22px; padding: 5px 18px; border-radius: 999px;
+    box-sizing: content-box; width: 22px; height: 22px; padding: 5px 14px; border-radius: 999px;
     transition: background var(--t) var(--ease), transform var(--t) var(--spring);
   }
   .appbar [aria-current="page"] > svg { background: var(--surface-2); }

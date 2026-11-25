@@ -1,18 +1,14 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Icon } from "@/components/Icon";
 import { api, ApiFailure, toast } from "@/lib/client";
+import { CATEGORIES, catColor } from "@/lib/categories";
 
 // Keep in sync with src/lib/offers.ts (server).
-const CATEGORIES: [string, string][] = [
-  ["Food & drink", "var(--coral)"], ["Cinema & events", "var(--pink)"], ["Fitness", "var(--mint)"],
-  ["AI & productivity", "var(--cyan)"], ["Design & media", "var(--lilac)"], ["Study & work", "var(--cyan)"],
-  ["Music & streaming", "var(--pink)"], ["Essentials", "var(--sun)"],
-];
 const DISTRICTS = ["Colombo", "Gampaha", "Kandy", "Galle", "Jaffna", "Kurunegala"];
 const CHANNELS = [["", "All"], ["IN_STORE", "In store"], ["ONLINE", "Online"], ["SAVED", "Saved"]] as const;
-const catColor = (c: string) => CATEGORIES.find(([id]) => id === c)?.[1] ?? "#B4B4C0";
 
 interface Offer {
   id: string; slug: string; title: string; benefit: string; howTo: string; category: string; badge: string;
@@ -24,7 +20,9 @@ export function OffersBrowser() {
   const [offers, setOffers] = useState<Offer[] | null>(null);
   const [q, setQ] = useState("");
   const [category, setCategory] = useState("");
-  const [channel, setChannel] = useState<(typeof CHANNELS)[number][0]>("");
+  // /offers?saved=1 (the header's heart) opens on Saved.
+  const search = useSearchParams();
+  const [channel, setChannel] = useState<(typeof CHANNELS)[number][0]>(search.get("saved") ? "SAVED" : "");
   const [district, setDistrict] = useState("");
   const [open, setOpen] = useState<Offer | null>(null);
 
@@ -48,6 +46,7 @@ export function OffersBrowser() {
       setOffers((xs) => (channel === "SAVED" && o.saved ? xs!.filter((x) => x.id !== o.id) : xs!.map((x) => (x.id === o.id ? { ...x, saved: !o.saved } : x))));
       setOpen((x) => (x?.id === o.id ? { ...x, saved: !o.saved } : x));
       toast(o.saved ? "Removed from saved" : "Saved");
+      window.dispatchEvent(new Event("sp:saved")); // header badge
     } catch (e) {
       toast(e instanceof ApiFailure && e.status === 401 ? "Sign in to save offers" : "Couldn’t save that offer");
     }

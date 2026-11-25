@@ -6,6 +6,7 @@ import { Sprite } from "@/components/Sprite";
 import { Nav } from "@/components/Nav";
 import { Footer } from "@/components/Footer";
 import { Toasts } from "@/components/Toasts";
+import { Reveal } from "@/components/Reveal";
 
 const display = Unbounded({ subsets: ["latin"], weight: ["500", "600"], variable: "--nf-display" });
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--nf-inter" });
@@ -37,6 +38,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <main id="main">{children}</main>
         <Footer />
         <Toasts />
+        <Reveal />
       </body>
     </html>
   );
