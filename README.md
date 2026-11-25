@@ -18,7 +18,8 @@ Next.js 16 (App Router, TypeScript) · PostgreSQL · Prisma 7 (`@prisma/adapter-
 | `/pass` | students | Live rotating QR (30 s ring), full-screen scan, freeze, card colour, sponsored perks, savings |
 | `/pos` | merchant staff | Branch, bill amount, scan (camera via BarcodeDetector) or paste QR, apply / complete / cancel, ledger with refunds |
 | `/campus` | verified students | Campus Life: due-soon deadlines, courses with assignments and grades, events (RSVP with capacity), clubs (join/leave), notices |
-| `/institution` | institution staff | Portal: overview numbers, notices, events, clubs, courses (enrol by student number, assignments, gradebook). Institution admins also verify their own students and manage staff |
+| `/institution` | institution staff | **Institution OS**: BI brain (KPIs + next best actions), analytics, market intelligence, CRM, admissions, student verification, notices, events, clubs, courses (enrolment, assignments, gradebook), staff, white-label settings and programmes. Tabs depend on the staff role |
+| `/enquire/[slug]` | public | The institution's branded enquiry page. Submissions become CRM leads assigned to the least-busy counsellor |
 | `/account` | everyone signed in | Change password (signs out other devices) |
 | `/admin` | platform admins | Verification queue (all institutions); create each institution's first admin |
 
@@ -55,6 +56,7 @@ For local dev, set `DATABASE_URL="postgresql://postgres:postgres@localhost:54329
 | admin@studentpass.example | Platform admin | — |
 | registrar@inspire-college.example | Institution admin · Inspire College | Verifies students, manages staff |
 | lecturer@inspire-college.example | Lecturer · Inspire College | Teaches CS101 and WEB201 |
+| rashmi@inspire-college.example, kevin@inspire-college.example | Counsellors · Inspire College | ~60 sample enquiries and applications |
 
 "Sandbox Café" is a fictional merchant for testing. The real-brand categories from the prototype are seeded as `PROSPECT`: browsable, but not redeemable until their terms are confirmed.
 
@@ -62,15 +64,21 @@ For local dev, set `DATABASE_URL="postgresql://postgres:postgres@localhost:54329
 
 **Accounts.** A platform admin creates an institution's first admin at `/admin`. That person adds lecturers (or more admins) at `/institution` → Staff. New staff accounts get a one-time password, shown once to whoever created them. They change it at `/account`. Removing a staff member ends their sessions and portal access but keeps the account, so their notices and grades keep an author.
 
-| | Lecturer | Institution admin |
-|---|:-:|:-:|
-| Notices, events, clubs, courses, assignments, grades | ✓ | ✓ |
-| Verify the institution's students | | ✓ |
-| Add and remove staff | | ✓ |
+| | Lecturer | Counsellor | Institution admin |
+|---|:-:|:-:|:-:|
+| BI brain (actions for their own work) | ✓ | ✓ | ✓ |
+| Notices, events, clubs, courses, assignments, grades | ✓ | | ✓ |
+| CRM, admissions, analytics, market intelligence | | ✓ | ✓ |
+| Verify the institution's students | | | ✓ |
+| Staff, branding, programmes | | | ✓ |
+
+**Institution OS.** Enquiries (`Lead`) move New → Contacted → Counselling, then via an `Application` through Under review → Offer issued → Accepted → Deposit paid → Enrolled. The lead's stage follows its application, and rejected or withdrawn applications mark the lead lost. Every change is written to the lead's timeline. Counsellors can reassign only their own leads. The BI brain's actions (uncontacted enquiries, stalled applications, waiting verifications, overdue grading, nearly full events) are computed from live records, filtered by role. Branding (display name, tagline, colour, logo as PNG/JPEG/WebP ≤ 256 KB, no SVG) appears on the portal, Campus Life, the enquiry page and the preview.
+
+**Rate limiting** (`src/lib/rate-limit.ts`) uses Postgres counters shared by all serverless instances: login 30 per 15 min per IP and 10 per 15 min per email, signup 10 per hour per IP, enquiries 5 per hour per IP and 500 per day per institution, password changes 10 per 15 min per user. The enquiry form also has a honeypot field.
 
 **Tenant isolation.** Every campus table has an `institutionId`. Handlers take it from `requireCampusStudent()` / `requireStaff()` in `src/lib/campus/access.ts`, never from the request, and include it in every query, so another institution's ids return 404. Students see Campus Life only once verified and while their pass is valid.
 
-**Tests.** `scripts/smoke-campus.sh` runs 46 API checks (access rules, isolation, RSVP capacity, grading limits, staff lifecycle) against a server on a freshly seeded **dev** database.
+**Tests.** Against a server on a freshly seeded **dev** database: `scripts/smoke-campus.sh` (46 checks: access rules, isolation, RSVP capacity, grading, staff lifecycle) and `scripts/smoke-os.sh` (55 checks: roles, CRM/admissions flow, isolation, branding and logo validation, public enquiries, rate limits).
 
 ## Using Supabase (hosted Postgres)
 

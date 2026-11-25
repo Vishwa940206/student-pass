@@ -39,6 +39,8 @@ model User {
   eventsCreated    Event[]
   coursesTaught    Course[]
   gradesGiven      Grade[]
+  leadsOwned       Lead[]          @relation("Counsellor")
+  leadActivities   LeadActivity[]
 }
 
 model Session {
@@ -69,6 +71,14 @@ model Institution {
   type      InstitutionType
   isPartner Boolean         @default(false)
 
+  // White-label branding (Institution OS → Settings). Null = Student Pass defaults.
+  displayName   String? // e.g. "Inspire College Campus"
+  brandColor    String? // "#RRGGBB"
+  tagline       String?
+  logo          Bytes? // PNG/JPEG/WebP/SVG, ≤ 256 KB, served at /api/v1/institutions/:id/logo
+  logoType      String?
+  logoUpdatedAt DateTime?
+
   students       StudentProfile[]
   sponsoredOffers Offer[]
 
@@ -77,6 +87,9 @@ model Institution {
   events        Event[]
   clubs         Club[]
   courses       Course[]
+  programmes    Programme[]
+  leads         Lead[]
+  applications  Application[]
 }
 
 enum VerificationStatus {
@@ -291,8 +304,9 @@ model Redemption {
 // is scoped by the signed-in person's institutionId (see src/lib/campus/access.ts).
 
 enum StaffRole {
-  ADMIN // manages staff, verifies students, everything a lecturer can do
+  ADMIN // everything: staff, verification, settings, CRM, admissions, campus, courses
   LECTURER // announcements, events, clubs, courses, assignments, grades
+  COUNSELLOR // CRM, admissions, analytics, market intelligence
 }
 
 model InstitutionStaff {
@@ -430,4 +444,138 @@ model Grade {
   gradedAt     DateTime       @default(now()) @updatedAt
 
   @@id([assignmentId, studentId])
+}
+
+// ───────────────────────── Institution OS: admissions & CRM ─────────────────────────
+
+enum StudyMode {
+  FULL_TIME
+  PART_TIME
+  ONLINE
+}
+
+model Programme {
+  id             String      @id @default(cuid())
+  institutionId  String
+  institution    Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  name           String
+  mode           StudyMode   @default(FULL_TIME)
+  durationMonths Int?
+  feeCents       Int? // per year, LKR cents
+  intakes        String[] // e.g. ["Jan 2027", "May 2027"]
+  open           Boolean     @default(true) // accepting enquiries / applications
+  createdAt      DateTime    @default(now())
+
+  leads        Lead[]
+  applications Application[]
+
+  @@unique([institutionId, name])
+}
+
+enum LeadSource {
+  WEBSITE // the institution's public enquiry page
+  STUDENT_PASS
+  INSTAGRAM
+  FACEBOOK
+  WHATSAPP
+  WALK_IN
+  PHONE
+  REFERRAL
+  EVENT
+  OTHER
+}
+
+enum LeadStage {
+  NEW
+  CONTACTED
+  COUNSELLING
+  APPLIED
+  OFFER
+  ENROLLED
+}
+
+model Lead {
+  id             String      @id @default(cuid())
+  institutionId  String
+  institution    Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  name           String
+  phone          String?
+  email          String?
+  district       String?
+  source         LeadSource
+  programmeId    String?
+  programme      Programme?  @relation(fields: [programmeId], references: [id], onDelete: SetNull)
+  stage          LeadStage   @default(NEW)
+  counsellorId   String?
+  counsellor     User?       @relation("Counsellor", fields: [counsellorId], references: [id], onDelete: SetNull)
+  consent        Boolean     @default(false) // agreed to be contacted
+  lostAt         DateTime?
+  lostReason     String?
+  lastActivityAt DateTime    @default(now())
+  createdAt      DateTime    @default(now())
+
+  activities  LeadActivity[]
+  application Application?
+
+  @@index([institutionId, stage])
+  @@index([institutionId, createdAt])
+  @@index([counsellorId])
+}
+
+enum ActivityKind {
+  NOTE
+  CALL
+  WHATSAPP
+  EMAIL
+  MEETING
+  STAGE // automatic: stage changed
+  SYSTEM // automatic: created, assigned, marked lost…
+}
+
+model LeadActivity {
+  id        String       @id @default(cuid())
+  leadId    String
+  lead      Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  authorId  String?
+  author    User?        @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  kind      ActivityKind
+  body      String
+  createdAt DateTime     @default(now())
+
+  @@index([leadId, createdAt])
+}
+
+enum ApplicationStatus {
+  UNDER_REVIEW
+  OFFER_ISSUED
+  ACCEPTED
+  DEPOSIT_PAID
+  ENROLLED
+  REJECTED
+  WITHDRAWN
+}
+
+model Application {
+  id            String            @id @default(cuid())
+  institutionId String
+  institution   Institution       @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  leadId        String            @unique
+  lead          Lead              @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  programmeId   String
+  programme     Programme         @relation(fields: [programmeId], references: [id])
+  intake        String
+  status        ApplicationStatus @default(UNDER_REVIEW)
+  statusAt      DateTime          @default(now()) // when the status last changed
+  createdAt     DateTime          @default(now())
+
+  @@index([institutionId, status])
+}
+
+// ───────────────────────── Rate limiting ─────────────────────────
+// Fixed-window counters shared by every serverless instance (in-memory limits don't
+// work on Vercel). Keys look like "login:ip:1.2.3.4" or "enquiry:inst:<id>".
+model RateLimit {
+  key         String   @id
+  windowStart DateTime
+  count       Int
 }

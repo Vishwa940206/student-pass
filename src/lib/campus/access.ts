@@ -42,18 +42,25 @@ export interface Staff {
 }
 
 /**
- * Institution staff. `"ADMIN"` limits the call to institution admins; the default allows
- * lecturers too. A user whose staff row was removed is treated as signed out of the portal.
+ * Institution staff. Pass the staff roles allowed to make the call; none = any staff.
+ *   requireStaff()                        any staff member
+ *   requireStaff("ADMIN")                 institution admins only
+ *   requireStaff(...CAMPUS)               admins + lecturers (campus content, courses)
+ *   requireStaff(...ADMISSIONS)           admins + counsellors (CRM, admissions)
+ * A user whose staff row was removed is treated as signed out of the portal.
  */
-export async function requireStaff(min: StaffRole = "LECTURER"): Promise<Staff> {
+export async function requireStaff(...allowed: StaffRole[]): Promise<Staff> {
   const user = await requireUser("INSTITUTION_STAFF");
   const s = await db.institutionStaff.findUnique({ where: { userId: user.id } });
   if (!s) throw new ApiError(403, "NO_INSTITUTION", "This account isn’t linked to an institution");
-  if (min === "ADMIN" && s.staffRole !== "ADMIN") {
-    throw new ApiError(403, "ADMINS_ONLY", "Only institution admins can do this");
+  if (allowed.length && !allowed.includes(s.staffRole)) {
+    throw new ApiError(403, "ROLE", "Your role doesn’t include this section");
   }
   return { user, institutionId: s.institutionId, staffRole: s.staffRole };
 }
+
+export const CAMPUS: StaffRole[] = ["ADMIN", "LECTURER"];
+export const ADMISSIONS: StaffRole[] = ["ADMIN", "COUNSELLOR"];
 
 /** Throws 404 unless the row exists in this institution (hides other tenants' ids). */
 export function found<T>(row: T | null | undefined, what: string): T {

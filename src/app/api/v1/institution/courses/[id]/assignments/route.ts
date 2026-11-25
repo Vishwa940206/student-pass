@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { body, handler, json } from "@/lib/api";
-import { found, requireStaff } from "@/lib/campus/access";
+import { CAMPUS, found, requireStaff } from "@/lib/campus/access";
 
 const Input = z.object({
   title: z.string().trim().min(2).max(120),
@@ -11,7 +11,7 @@ const Input = z.object({
 });
 
 export const POST = handler(async (req, ctx: RouteContext<"/api/v1/institution/courses/[id]/assignments">) => {
-  const { institutionId } = await requireStaff();
+  const { institutionId } = await requireStaff(...CAMPUS);
   const { id } = await ctx.params;
   found(await db.course.findFirst({ where: { id, institutionId }, select: { id: true } }), "Course");
   const a = await body(req, Input);

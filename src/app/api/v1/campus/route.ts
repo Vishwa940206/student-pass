@@ -1,14 +1,15 @@
 import { db } from "@/lib/db";
 import { handler, json } from "@/lib/api";
 import { requireCampusStudent } from "@/lib/campus/access";
+import { brandingOf } from "@/lib/os/branding";
 
 /** Everything on a verified student's Campus Life home, scoped to their institution. */
 export const GET = handler(async () => {
   const { studentId, institutionId } = await requireCampusStudent();
   const now = new Date();
 
-  const [institution, announcements, events, clubs, enrolments] = await Promise.all([
-    db.institution.findUniqueOrThrow({ where: { id: institutionId }, select: { name: true, shortName: true } }),
+  const [branding, announcements, events, clubs, enrolments] = await Promise.all([
+    brandingOf(institutionId),
     db.announcement.findMany({
       where: { institutionId },
       orderBy: [{ pinned: "desc" }, { createdAt: "desc" }],
@@ -57,7 +58,8 @@ export const GET = handler(async () => {
   ]);
 
   return json({
-    institution,
+    institution: { name: branding.displayName, shortName: branding.shortName },
+    branding,
     announcements,
     events: events.map(({ _count, rsvps, ...e }) => ({ ...e, going: _count.rsvps, mine: rsvps.length > 0 })),
     clubs: clubs.map(({ _count, members, ...c }) => ({ ...c, members: _count.members, mine: members.length > 0 })),

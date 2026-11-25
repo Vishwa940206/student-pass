@@ -45,7 +45,8 @@ export function StaffPanel({ staff, meId, reload }: { staff: StaffMember[]; meId
           <div className="field"><label htmlFor="s-role">Role</label>
             <select className="select" id="s-role" name="staffRole" defaultValue="LECTURER">
               <option value="LECTURER">Lecturer: notices, events, clubs, courses, grades</option>
-              <option value="ADMIN">Admin: also verifies students and manages staff</option>
+              <option value="COUNSELLOR">Counsellor: CRM, admissions, analytics, market</option>
+              <option value="ADMIN">Admin: everything, including staff, verification and settings</option>
             </select>
           </div>
           <button className="btn btn-primary" disabled={busy}>{busy ? "Creating…" : "Create account"}</button>
@@ -55,7 +56,7 @@ export function StaffPanel({ staff, meId, reload }: { staff: StaffMember[]; meId
         <h3 className="h-card">{staff.length} staff</h3>
         {staff.map((s) => (
           <div key={s.id} className="list-row">
-            <div><b>{s.name}</b>{s.id === meId && <span className="tiny"> (you)</span>}<div className="meta">{s.email} · {s.staffRole === "ADMIN" ? "Admin" : "Lecturer"} · since {fmtDate(s.createdAt)}</div></div>
+            <div><b>{s.name}</b>{s.id === meId && <span className="tiny"> (you)</span>}<div className="meta">{s.email} · {s.staffRole === "ADMIN" ? "Admin" : s.staffRole === "COUNSELLOR" ? "Counsellor" : "Lecturer"} · since {fmtDate(s.createdAt)}</div></div>
             {s.id !== meId && <button className="btn btn-ghost btn-sm" onClick={() => remove(`/institution/staff/${s.id}`, `${s.name}’s access (they’ll be signed out)`, reload)}>Remove</button>}
           </div>
         ))}

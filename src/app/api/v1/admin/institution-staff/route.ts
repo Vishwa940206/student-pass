@@ -22,7 +22,7 @@ const Input = z.object({
   institutionId: z.string().min(1),
   email: z.email().trim().toLowerCase(),
   name: z.string().trim().min(2).max(80),
-  staffRole: z.enum(["ADMIN", "LECTURER"]).default("ADMIN"),
+  staffRole: z.enum(["ADMIN", "LECTURER", "COUNSELLOR"]).default("ADMIN"),
 });
 
 /** Create an institution's first admin (or any staff). Returns a one-time password. */

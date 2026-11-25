@@ -12,7 +12,7 @@ interface Course { id: string; code: string; name: string; lecturer: { name: str
 interface CampusEvent { id: string; title: string; description: string; location: string; startsAt: string; endsAt: string | null; capacity: number | null; going: number; mine: boolean }
 interface Club { id: string; name: string; description: string; members: number; mine: boolean }
 interface Notice { id: string; title: string; body: string; pinned: boolean; createdAt: string; author: { name: string } }
-interface Campus { loadedAt: number; institution: { name: string; shortName: string }; announcements: Notice[]; events: CampusEvent[]; clubs: Club[]; courses: Course[] }
+interface Campus { loadedAt: number; institution: { name: string; shortName: string }; branding: { tagline: string | null; brandColor: string | null; logoUrl: string | null }; announcements: Notice[]; events: CampusEvent[]; clubs: Club[]; courses: Course[] }
 
 const TABS = [["today", "Today"], ["courses", "Courses"], ["events", "Events"], ["clubs", "Clubs"], ["notices", "Notices"]] as const;
 type Tab = (typeof TABS)[number][0];
@@ -55,12 +55,19 @@ export function CampusView() {
     .filter((a) => !a.grade && new Date(a.dueAt).getTime() > now - 86_400_000)
     .sort((a, b) => +new Date(a.dueAt) - +new Date(b.dueAt));
 
+  const brand = data.branding;
   return (
-    <>
+    <div style={brand.brandColor ? ({ ["--brand" as string]: brand.brandColor }) : undefined}>
       <div className="sec-head">
-        <div className="l">
-          <span className="eyebrow"><span className="idx">{data.institution.shortName}</span>Campus Life</span>
-          <h1 className="h-sec page-title">{data.institution.name}.</h1>
+        <div className="l" style={{ display: "flex", gap: 16, alignItems: "center" }}>
+          {brand.logoUrl
+            // eslint-disable-next-line @next/next/no-img-element
+            ? <img src={brand.logoUrl} alt="" className="inst-logo" />
+            : <span className="inst-logo brand-initials">{data.institution.shortName.slice(0, 3)}</span>}
+          <div>
+            <span className="eyebrow">Campus Life{brand.tagline ? ` · ${brand.tagline}` : ""}</span>
+            <h1 className="h-sec page-title" style={{ margin: 0 }}>{data.institution.name}.</h1>
+          </div>
         </div>
         <p className="r">Your courses, deadlines, events and clubs, from {data.institution.shortName}.</p>
       </div>
@@ -146,7 +153,7 @@ export function CampusView() {
           </div>
         ) : <div className="empty">No announcements yet.</div>
       )}
-    </>
+    </div>
   );
 }
 

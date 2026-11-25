@@ -4,7 +4,9 @@
 #   API=http://localhost:3000/api/v1 DATABASE_URL=postgresql://…/student_pass scripts/smoke-campus.sh
 # Written for macOS's bash 3.2: JSON bodies with variables are built in $D first.
 B=${API:-http://localhost:3000/api/v1}; ORIGIN=${B%/api/v1}; J=$(mktemp -d); pass=0; fail=0
-req() { local jar=$1 m=$2 p=$3 d=$4; local args=(-s -c "$J/$jar" -b "$J/$jar" -X "$m" "$B$p" -H 'content-type: application/json' -H "origin: $ORIGIN" -w '\n%{http_code}'); [ -n "$d" ] && args+=(--data-raw "$d"); curl "${args[@]}"; }
+RUN=$RANDOM$RANDOM
+IP="10.$((RANDOM % 250)).$((RANDOM % 250)).$((RANDOM % 250))"   # fresh rate-limit bucket per run
+req() { local jar=$1 m=$2 p=$3 d=$4; local args=(-s -c "$J/$jar" -b "$J/$jar" -X "$m" "$B$p" -H 'content-type: application/json' -H "origin: $ORIGIN" -H "x-real-ip: $IP" -w '\n%{http_code}'); [ -n "$d" ] && args+=(--data-raw "$d"); curl "${args[@]}"; }
 check() { local name=$1 want=$2 out=$3; local code=$(echo "$out" | tail -1); if [ "$code" = "$want" ]; then pass=$((pass+1)); echo "  ok   $name ($code)"; else fail=$((fail+1)); echo "  FAIL $name: want $want got $code :: $(echo "$out" | head -1 | cut -c1-200)"; fi; }
 login() { req $1 POST /auth/login "{\"email\":\"$2\",\"password\":\"studentpass\"}" >/dev/null; }
 rm -f $J/*.jar
@@ -58,20 +60,20 @@ o=$(req nethmi.jar GET /campus); echo "$o" | head -1 | python3 -c "import json,s
 
 echo "Staff accounts"
 o=$(req lec.jar POST /institution/staff '{"email":"x@ic.example","name":"X Person"}'); check "lecturer can't add staff" 403 "$o"
-o=$(req reg.jar POST /institution/staff '{"email":"newlec@ic.example","name":"New Lecturer"}'); check "registrar adds lecturer" 201 "$o"; TMP=$(echo "$o" | head -1 | python3 -c "import json,sys;print(json.load(sys.stdin)['tempPassword'])"); NEWID=$(echo "$o" | head -1 | python3 -c "import json,sys;print(json.load(sys.stdin)['userId'])"); echo "    one-time password format: ${TMP:0:4}-****"
+D="{\"email\":\"newlec-$RUN@ic.example\",\"name\":\"New Lecturer\"}"; o=$(req reg.jar POST /institution/staff "$D"); check "registrar adds lecturer" 201 "$o"; TMP=$(echo "$o" | head -1 | python3 -c "import json,sys;print(json.load(sys.stdin)['tempPassword'])"); NEWID=$(echo "$o" | head -1 | python3 -c "import json,sys;print(json.load(sys.stdin)['userId'])"); echo "    one-time password format: ${TMP:0:4}-****"
 check "email already used" 409 "$(req reg.jar POST /institution/staff '{"email":"nethmi@example.com","name":"Hijack"}')"
-D="{\"email\":\"newlec@ic.example\",\"password\":\"$TMP\"}"
+D="{\"email\":\"newlec-$RUN@ic.example\",\"password\":\"$TMP\"}"
 check "new lecturer logs in with one-time password" 200 "$(req new.jar POST /auth/login "$D")"
 D="{\"currentPassword\":\"$TMP\",\"newPassword\":\"a-brand-new-password\"}"
 check "new lecturer changes password" 200 "$(req new.jar POST /auth/password "$D")"
 check "still signed in after change" 200 "$(req new.jar GET /institution)"
-D="{\"email\":\"newlec@ic.example\",\"password\":\"$TMP\"}"
+D="{\"email\":\"newlec-$RUN@ic.example\",\"password\":\"$TMP\"}"
 check "old password no longer works" 401 "$(req new2.jar POST /auth/login "$D")"
 check "can't remove yourself" 400 "$(req reg.jar DELETE /institution/staff/$(req reg.jar GET /institution | head -1 | python3 -c "import json,sys;print(json.load(sys.stdin)['me']['id'])"))"
 check "registrar removes lecturer" 200 "$(req reg.jar DELETE /institution/staff/$NEWID)"
 check "removed lecturer is signed out" 401 "$(req new.jar GET /institution)"
 o=$(req admin.jar GET /institutions); UOM=$(echo "$o" | head -1 | python3 -c "import json,sys;print([i['id'] for i in json.load(sys.stdin)['institutions'] if i['shortName']=='UoM'][0])")
-D="{\"institutionId\":\"$UOM\",\"email\":\"admin@uom.example\",\"name\":\"UoM Admin\"}"
+D="{\"institutionId\":\"$UOM\",\"email\":\"admin-$RUN@uom.example\",\"name\":\"UoM Admin\"}"
 o=$(req admin.jar POST /admin/institution-staff "$D"); check "platform admin creates UoM admin" 201 "$o"; UTMP=$(echo "$o" | head -1 | python3 -c "import json,sys;print(json.load(sys.stdin)['tempPassword'])")
 check "platform admin lists staff" 200 "$(req admin.jar GET /admin/institution-staff)"
 D="{\"institutionId\":\"$UOM\",\"email\":\"z@z.example\",\"name\":\"Zed\"}"
@@ -80,7 +82,7 @@ check "cross-origin blocked" 403 "$(curl -s -b $J/reg.jar -X POST $B/institution
 
 echo "Cleanup"
 check "delete announcement" 200 "$(req reg.jar DELETE /institution/announcements/$AN)"
-D="{\"email\":\"admin@uom.example\",\"password\":\"$UTMP\"}"; req uomadm.jar POST /auth/login "$D" >/dev/null
+D="{\"email\":\"admin-$RUN@uom.example\",\"password\":\"$UTMP\"}"; req uomadm.jar POST /auth/login "$D" >/dev/null
 check "UoM admin can't delete IC course" 404 "$(req uomadm.jar DELETE /institution/courses/$CO)"
 check "delete course" 200 "$(req lec.jar DELETE /institution/courses/$CO)"
 echo "RESULT: $pass passed, $fail failed"; [ "$fail" = 0 ]

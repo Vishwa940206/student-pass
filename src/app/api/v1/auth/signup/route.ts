@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { ApiError, body, handler, json } from "@/lib/api";
 import { hashPassword } from "@/lib/auth/password";
 import { createSession } from "@/lib/auth/session";
+import { clientIp, limit } from "@/lib/rate-limit";
 import { Prisma } from "@/generated/prisma/client";
 
 const Signup = z.object({
@@ -17,6 +18,7 @@ const Signup = z.object({
 /** Students sign up; their status starts PENDING until verified. */
 export const POST = handler(async (req) => {
   const input = await body(req, Signup);
+  await limit("signup:ip", clientIp(req), 10, 60 * 60);
   const institution = await db.institution.findUnique({ where: { id: input.institutionId } });
   if (!institution) throw new ApiError(400, "UNKNOWN_INSTITUTION", "Choose your institution from the list");
 

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { body, handler, json } from "@/lib/api";
-import { requireStaff } from "@/lib/campus/access";
+import { CAMPUS, requireStaff } from "@/lib/campus/access";
 
 const Input = z
   .object({
@@ -15,7 +15,7 @@ const Input = z
   .refine((e) => !e.endsAt || new Date(e.endsAt) > new Date(e.startsAt), { message: "End must be after start", path: ["endsAt"] });
 
 export const POST = handler(async (req) => {
-  const { user, institutionId } = await requireStaff();
+  const { user, institutionId } = await requireStaff(...CAMPUS);
   const e = await body(req, Input);
   const row = await db.event.create({
     data: {

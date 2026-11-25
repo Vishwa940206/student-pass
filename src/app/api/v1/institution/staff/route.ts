@@ -6,7 +6,7 @@ import { createStaffAccount } from "@/lib/campus/staff";
 const Input = z.object({
   email: z.email().trim().toLowerCase(),
   name: z.string().trim().min(2).max(80),
-  staffRole: z.enum(["ADMIN", "LECTURER"]).default("LECTURER"),
+  staffRole: z.enum(["ADMIN", "LECTURER", "COUNSELLOR"]).default("LECTURER"),
 });
 
 /** Institution admins add staff to their own institution. Returns a one-time password. */

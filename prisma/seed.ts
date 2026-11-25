@@ -144,6 +144,61 @@ async function main() {
   await db.assignment.create({ data: { courseId: cs.id, title: "Mid-term project", description: "Build a small command-line app. Submit via the lab portal.", dueAt: day(5, 23), maxMarks: 100 } });
   await db.grade.create({ data: { assignmentId: a1.id, studentId: nethmi.id, marks: 17, feedback: "Clean code. Watch off-by-one errors.", gradedById: lecturerId } });
 
+  // ── Institution OS demo: programmes, counsellors, enquiries, applications (Inspire College) ──
+  await db.lead.deleteMany({ where: { institutionId: ic } });
+  await db.programme.deleteMany({ where: { institutionId: ic } });
+  const progs = await Promise.all([
+    ["BSc (Hons) Computing", "FULL_TIME", 36, 95_000_000],
+    ["BSc (Hons) Business Management", "FULL_TIME", 36, 85_000_000],
+    ["Foundation in Health Sciences", "FULL_TIME", 12, 45_000_000],
+    ["Diploma in Content Creation", "PART_TIME", 12, 30_000_000],
+  ].map(([name, mode, durationMonths, feeCents]) => db.programme.create({
+    data: { institutionId: ic, name: name as string, mode: mode as "FULL_TIME" | "PART_TIME", durationMonths: durationMonths as number, feeCents: feeCents as number, intakes: ["Jan 2027", "May 2027"] },
+  })));
+  const counsellorIds: string[] = [];
+  for (const [email, name] of [["rashmi@inspire-college.example", "Rashmi Wickramasinghe"], ["kevin@inspire-college.example", "Kevin de Silva"]]) {
+    const u = await db.user.upsert({ where: { email }, update: { passwordHash, role: "INSTITUTION_STAFF" }, create: { email, name, passwordHash, role: "INSTITUTION_STAFF" } });
+    await db.institutionStaff.upsert({ where: { userId: u.id }, update: { institutionId: ic, staffRole: "COUNSELLOR" }, create: { userId: u.id, institutionId: ic, staffRole: "COUNSELLOR" } });
+    counsellorIds.push(u.id);
+  }
+  // Deterministic pseudo-random so the demo looks the same on every seed.
+  let seed = 42;
+  const rnd = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
+  const pick = <T,>(xs: readonly T[]) => xs[Math.floor(rnd() * xs.length)];
+  const FIRST = ["Sahan", "Dinithi", "Kavindu", "Tharushi", "Ravindu", "Sachini", "Nimesh", "Hiruni", "Pasindu", "Imasha", "Chamod", "Senuri", "Yasiru", "Malsha", "Dulaj", "Ishini"];
+  const LAST = ["Perera", "Fernando", "Silva", "Jayawardena", "Bandara", "Herath", "Rathnayake", "Gunasekara", "Wijesinghe", "Dissanayake"];
+  const SOURCES = ["WEBSITE", "WEBSITE", "INSTAGRAM", "WHATSAPP", "WALK_IN", "REFERRAL", "STUDENT_PASS", "EVENT", "FACEBOOK"] as const;
+  const DISTRICTS = ["Colombo", "Colombo", "Gampaha", "Kandy", "Kalutara", "Galle", "Kurunegala", "Matara", "Jaffna"];
+  const STAGES = ["NEW", "CONTACTED", "COUNSELLING", "APPLIED", "OFFER", "ENROLLED"] as const;
+  for (let i = 0; i < 64; i++) {
+    const source = pick(SOURCES);
+    const boost = source === "REFERRAL" ? 0.25 : source === "STUDENT_PASS" ? 0.2 : source === "INSTAGRAM" ? -0.1 : 0;
+    const x = rnd() + boost;
+    const prog = rnd() < 0.85 ? pick(progs) : null;
+    const reached = x > 0.97 ? 5 : x > 0.88 ? 4 : x > 0.72 ? 3 : x > 0.5 ? 2 : x > 0.25 ? 1 : 0;
+    const si = prog ? reached : Math.min(reached, 2); // applying needs a programme
+    const ageDays = Math.floor(rnd() * 170) + (si === 0 ? 0 : 3);
+    const created = new Date(Date.now() - ageDays * 86_400_000);
+    const lost = si < 3 && rnd() < 0.15;
+    const name = `${pick(FIRST)} ${pick(LAST)}`;
+    const lead = await db.lead.create({
+      data: {
+        institutionId: ic, name, phone: `+94 7${Math.floor(rnd() * 8)} ${100 + Math.floor(rnd() * 899)} ${1000 + Math.floor(rnd() * 8999)}`,
+        district: pick(DISTRICTS), source, programmeId: prog?.id ?? null, stage: STAGES[si],
+        counsellorId: i % 9 === 0 ? null : counsellorIds[i % 2], consent: true, createdAt: created,
+        lastActivityAt: new Date(created.getTime() + Math.min(ageDays, Math.floor(rnd() * 10)) * 86_400_000),
+        lostAt: lost ? new Date() : null, lostReason: lost ? pick(["Chose another institution", "Fees too high", "No response"]) : null,
+      },
+    });
+    await db.leadActivity.create({ data: { leadId: lead.id, kind: "SYSTEM", body: source === "WEBSITE" ? "Enquiry from the website" : "Added by counsellor", createdAt: created } });
+    if (si >= 1) await db.leadActivity.create({ data: { leadId: lead.id, kind: pick(["CALL", "WHATSAPP"] as const), body: "Discussed entry requirements and intakes.", authorId: counsellorIds[i % 2], createdAt: new Date(created.getTime() + 86_400_000) } });
+    if (si >= 3 && prog) { // always true when si >= 3
+      const status = si === 5 ? "ENROLLED" : si === 4 ? pick(["OFFER_ISSUED", "ACCEPTED", "DEPOSIT_PAID"] as const) : "UNDER_REVIEW";
+      await db.application.create({ data: { institutionId: ic, leadId: lead.id, programmeId: prog.id, intake: pick(prog.intakes), status, createdAt: new Date(created.getTime() + 5 * 86_400_000), statusAt: new Date(created.getTime() + 9 * 86_400_000) } });
+    }
+  }
+  await db.institution.update({ where: { id: ic }, data: { displayName: "Inspire College", tagline: "Learn by building.", brandColor: "#7C5CFF" } });
+
   const counts = await Promise.all([db.institution.count(), db.offer.count(), db.user.count()]);
   console.log(`Seeded: ${counts[0]} institutions, ${counts[1]} offers, ${counts[2]} users (password: ${DEV_PASSWORD})`);
 }

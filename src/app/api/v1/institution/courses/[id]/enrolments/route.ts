@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { ApiError, body, handler, json } from "@/lib/api";
-import { found, requireStaff } from "@/lib/campus/access";
+import { CAMPUS, found, requireStaff } from "@/lib/campus/access";
 
 /** Class list. */
 export const GET = handler(async (_req, ctx: RouteContext<"/api/v1/institution/courses/[id]/enrolments">) => {
-  const { institutionId } = await requireStaff();
+  const { institutionId } = await requireStaff(...CAMPUS);
   const { id } = await ctx.params;
   found(await db.course.findFirst({ where: { id, institutionId }, select: { id: true } }), "Course");
   const rows = await db.enrolment.findMany({
@@ -25,7 +25,7 @@ const Input = z.object({ studentNumbers: z.array(z.string().trim().min(1).max(40
 
 /** Enrol students by student number (this institution only). Reports numbers that didn't match. */
 export const POST = handler(async (req, ctx: RouteContext<"/api/v1/institution/courses/[id]/enrolments">) => {
-  const { institutionId } = await requireStaff();
+  const { institutionId } = await requireStaff(...CAMPUS);
   const { id } = await ctx.params;
   found(await db.course.findFirst({ where: { id, institutionId }, select: { id: true } }), "Course");
   const { studentNumbers } = await body(req, Input);

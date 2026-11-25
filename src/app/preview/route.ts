@@ -39,16 +39,16 @@ async function personalisation() {
   const inst = institutionId
     ? await db.institution.findUnique({
         where: { id: institutionId },
-        select: { name: true, shortName: true, slug: true },
+        select: { name: true, shortName: true, slug: true, displayName: true, brandColor: true },
       })
     : null;
 
   return {
     short,
     inst: inst && {
-      name: inst.name,
+      name: inst.displayName ?? inst.name,
       abbr: inst.shortName.slice(0, 4),
-      color: "var(--lilac)",
+      color: inst.brandColor ?? "var(--lilac)",
       domain: `${inst.slug}.studentpass.lk`,
     },
   };

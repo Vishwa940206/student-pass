@@ -4,7 +4,7 @@ import { api, toast } from "@/lib/client";
 import { NewAccountNotice } from "@/app/institution/StaffPanel";
 
 interface Inst { id: string; name: string; shortName: string }
-interface Row { id: string; name: string; email: string; staffRole: "ADMIN" | "LECTURER"; institution: Inst }
+interface Row { id: string; name: string; email: string; staffRole: "ADMIN" | "LECTURER" | "COUNSELLOR"; institution: Inst }
 
 /** Platform admin: give an institution its first admin account. */
 export function InstitutionAccounts() {
@@ -57,7 +57,7 @@ export function InstitutionAccounts() {
           <h3 className="h-card">{rows.length} staff accounts</h3>
           {rows.map((r) => (
             <div key={r.id} className="list-row">
-              <div><b>{r.name}</b><div className="meta">{r.email} · {r.staffRole === "ADMIN" ? "Admin" : "Lecturer"}</div></div>
+              <div><b>{r.name}</b><div className="meta">{r.email} · {r.staffRole === "ADMIN" ? "Admin" : r.staffRole === "COUNSELLOR" ? "Counsellor" : "Lecturer"}</div></div>
               <span className="tag soft">{r.institution.shortName}</span>
             </div>
           ))}

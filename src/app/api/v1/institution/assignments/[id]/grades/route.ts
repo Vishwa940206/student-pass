@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { ApiError, body, handler, json } from "@/lib/api";
-import { found, requireStaff } from "@/lib/campus/access";
+import { CAMPUS, found, requireStaff } from "@/lib/campus/access";
 
 async function assignmentIn(id: string, institutionId: string) {
   return found(
@@ -12,7 +12,7 @@ async function assignmentIn(id: string, institutionId: string) {
 
 /** Gradebook: every enrolled student with their grade (if any). */
 export const GET = handler(async (_req, ctx: RouteContext<"/api/v1/institution/assignments/[id]/grades">) => {
-  const { institutionId } = await requireStaff();
+  const { institutionId } = await requireStaff(...CAMPUS);
   const { id } = await ctx.params;
   const a = await assignmentIn(id, institutionId);
   const rows = await db.enrolment.findMany({
@@ -43,7 +43,7 @@ const Input = z.object({
 
 /** Save grades for enrolled students. Marks can't exceed the assignment's maximum. */
 export const PUT = handler(async (req, ctx: RouteContext<"/api/v1/institution/assignments/[id]/grades">) => {
-  const { user, institutionId } = await requireStaff();
+  const { user, institutionId } = await requireStaff(...CAMPUS);
   const { id } = await ctx.params;
   const a = await assignmentIn(id, institutionId);
   const { grades } = await body(req, Input);

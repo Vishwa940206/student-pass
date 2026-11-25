@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import { Inter, JetBrains_Mono, Unbounded } from "next/font/google";
 import "./globals.css";
 import { Sprite } from "@/components/Sprite";
@@ -31,7 +32,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <Sprite />
         <div className="backdrop" aria-hidden="true"><div className="glow" /></div>
         <a href="#main" className="sr">Skip to content</a>
-        <Nav />
+        {/* Nav reads the URL (usePathname); dynamic routes need that behind Suspense. */}
+        <Suspense fallback={null}><Nav /></Suspense>
         <main id="main">{children}</main>
         <Footer />
         <Toasts />

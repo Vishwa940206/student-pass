@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { ApiError, body, handler, json } from "@/lib/api";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { createSession, requireUser } from "@/lib/auth/session";
+import { limit } from "@/lib/rate-limit";
 
 const Input = z.object({
   currentPassword: z.string().min(1).max(200),
@@ -13,6 +14,7 @@ const Input = z.object({
 export const POST = handler(async (req) => {
   const user = await requireUser();
   const { currentPassword, newPassword } = await body(req, Input);
+  await limit("password:user", user.id, 10, 15 * 60);
   const row = await db.user.findUniqueOrThrow({ where: { id: user.id }, select: { passwordHash: true } });
   if (!(await verifyPassword(currentPassword, row.passwordHash))) {
     throw new ApiError(400, "WRONG_PASSWORD", "Your current password is incorrect");

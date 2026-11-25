@@ -1,14 +1,15 @@
 import { db } from "@/lib/db";
 import { handler, json } from "@/lib/api";
 import { requireStaff } from "@/lib/campus/access";
+import { brandingOf } from "@/lib/os/branding";
 
 /** Institution portal data for the signed-in staff member's institution. */
 export const GET = handler(async () => {
   const { user, institutionId, staffRole } = await requireStaff();
   const where = { institutionId };
 
-  const [institution, students, announcements, events, clubs, courses, staff] = await Promise.all([
-    db.institution.findUniqueOrThrow({ where: { id: institutionId }, select: { id: true, name: true, shortName: true } }),
+  const [branding, students, announcements, events, clubs, courses, staff] = await Promise.all([
+    brandingOf(institutionId),
     db.studentProfile.groupBy({ by: ["verificationStatus"], where, _count: true }),
     db.announcement.findMany({
       where, orderBy: [{ pinned: "desc" }, { createdAt: "desc" }], take: 50,
@@ -36,7 +37,8 @@ export const GET = handler(async () => {
   const count = (s: string) => students.find((x) => x.verificationStatus === s)?._count ?? 0;
   return json({
     me: { id: user.id, name: user.name, staffRole },
-    institution,
+    institution: { id: branding.id, name: branding.displayName, shortName: branding.shortName, slug: branding.slug },
+    branding,
     stats: {
       verified: count("VERIFIED"), pending: count("PENDING"),
       upcomingEvents: events.filter((e) => e.startsAt > new Date()).length,

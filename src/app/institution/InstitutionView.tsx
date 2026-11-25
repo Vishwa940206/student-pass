@@ -7,16 +7,21 @@ import { VerificationQueue } from "@/app/admin/VerificationQueue";
 import { api, ApiFailure, toast } from "@/lib/client";
 import { colomboIso, fmtDate, fmtDateTime } from "@/lib/format";
 import { CoursesPanel } from "./CoursesPanel";
+import { AnalyticsPanel, BrainPanel, MarketPanel } from "./InsightPanels";
+import { CrmPanel } from "./CrmPanel";
+import { AdmissionsPanel, SettingsPanel } from "./AdmissionsSettings";
 import { StaffPanel } from "./StaffPanel";
 
-export interface StaffMember { id: string; name: string; email: string; staffRole: "ADMIN" | "LECTURER"; createdAt: string }
+export type StaffRole = "ADMIN" | "LECTURER" | "COUNSELLOR";
+export interface StaffMember { id: string; name: string; email: string; staffRole: StaffRole; createdAt: string }
 export interface PortalCourse {
   id: string; code: string; name: string; enrolled: number; lecturer: { id: string; name: string } | null;
   assignments: { id: string; title: string; dueAt: string; maxMarks: number; graded: number }[];
 }
 export interface Portal {
-  me: { id: string; name: string; staffRole: "ADMIN" | "LECTURER" };
-  institution: { id: string; name: string; shortName: string };
+  me: { id: string; name: string; staffRole: StaffRole };
+  institution: { id: string; name: string; shortName: string; slug: string };
+  branding: { displayName: string; tagline: string | null; brandColor: string | null; logoUrl: string | null };
   stats: { verified: number; pending: number; upcomingEvents: number; clubMembers: number; courses: number; enrolments: number };
   announcements: { id: string; title: string; body: string; pinned: boolean; createdAt: string; author: { name: string } }[];
   events: { id: string; title: string; description: string; location: string; startsAt: string; endsAt: string | null; capacity: number | null; going: number }[];
@@ -25,11 +30,23 @@ export interface Portal {
   staff: StaffMember[];
 }
 
+// Every Institution OS section, and which staff roles see it.
 const TABS = [
-  ["overview", "Overview"], ["students", "Students"], ["notices", "Notices"], ["events", "Events"],
-  ["clubs", "Clubs"], ["courses", "Courses"], ["staff", "Staff"],
+  ["brain", "BI brain", ["ADMIN", "LECTURER", "COUNSELLOR"]],
+  ["analytics", "Analytics", ["ADMIN", "COUNSELLOR"]],
+  ["market", "Market", ["ADMIN", "COUNSELLOR"]],
+  ["crm", "CRM", ["ADMIN", "COUNSELLOR"]],
+  ["admissions", "Admissions", ["ADMIN", "COUNSELLOR"]],
+  ["students", "Students", ["ADMIN"]],
+  ["notices", "Notices", ["ADMIN", "LECTURER"]],
+  ["events", "Events", ["ADMIN", "LECTURER"]],
+  ["clubs", "Clubs", ["ADMIN", "LECTURER"]],
+  ["courses", "Courses", ["ADMIN", "LECTURER"]],
+  ["staff", "Staff", ["ADMIN"]],
+  ["settings", "Settings", ["ADMIN"]],
 ] as const;
 type Tab = (typeof TABS)[number][0];
+const ROLE_NAME: Record<StaffRole, string> = { ADMIN: "Institution admin", LECTURER: "Lecturer", COUNSELLOR: "Counsellor" };
 
 /** Submits a form as JSON, then toasts and reloads. Returns false (and toasts) on failure. */
 export async function submit(path: string, json: unknown, ok: string, after: () => void, method = "POST") {
@@ -62,7 +79,9 @@ const str = (f: FormData, k: string) => String(f.get(k) ?? "").trim();
 export function InstitutionView() {
   const [data, setData] = useState<Portal | null>(null);
   const [blocked, setBlocked] = useState<number | null>(null);
-  const [tab, setTab] = useState<Tab>("overview");
+  const [tab, setTab] = useState<Tab>("brain");
+  const [filter, setFilter] = useState<Record<string, string> | undefined>(undefined);
+  const go = (t: string, f?: Record<string, string>) => { setFilter(f); setTab(t as Tab); };
 
   const load = useCallback(() => {
     api<Portal>("/institution")
@@ -91,54 +110,33 @@ export function InstitutionView() {
   if (!data) return <p className="muted">Loading the portal…</p>;
 
   const isAdmin = data.me.staffRole === "ADMIN";
-  const tabs = TABS.filter(([v]) => isAdmin || (v !== "students" && v !== "staff"));
-  const s = data.stats;
+  const tabs = TABS.filter(([, , roles]) => (roles as readonly string[]).includes(data.me.staffRole)).map(([v, l]) => [v, l] as const);
+  const brand = data.branding;
 
   return (
-    <>
+    <div style={brand.brandColor ? ({ ["--brand" as string]: brand.brandColor }) : undefined}>
       <div className="sec-head">
-        <div className="l">
-          <span className="eyebrow"><span className="idx">{data.institution.shortName}</span>Institution portal</span>
-          <h1 className="h-sec page-title">{data.institution.name}.</h1>
+        <div className="l" style={{ display: "flex", gap: 16, alignItems: "center" }}>
+          {brand.logoUrl
+            // eslint-disable-next-line @next/next/no-img-element
+            ? <img src={brand.logoUrl} alt="" className="inst-logo" />
+            : <span className="inst-logo brand-initials">{data.institution.shortName.slice(0, 3)}</span>}
+          <div>
+            <span className="eyebrow">Institution OS{brand.tagline ? ` · ${brand.tagline}` : ""}</span>
+            <h1 className="h-sec page-title" style={{ margin: 0 }}>{data.institution.name}.</h1>
+          </div>
         </div>
-        <p className="r">Signed in as {data.me.name} · {isAdmin ? "Institution admin" : "Lecturer"}</p>
+        <p className="r">Signed in as {data.me.name} · {ROLE_NAME[data.me.staffRole]}</p>
       </div>
 
-      <Tabs tabs={tabs} value={tab} onChange={setTab} label="Portal sections" />
+      <Tabs tabs={tabs} value={tab} onChange={(t) => go(t)} label="Institution OS sections" />
 
-      {tab === "overview" && (
-        <>
-          <div className="kpis">
-            <div className="stat"><span className="tiny">Verified students</span><b>{s.verified}</b></div>
-            <div className="stat" style={s.pending ? { background: "color-mix(in oklab, var(--sun) 35%, var(--surface))" } : undefined}>
-              <span className="tiny">Waiting for verification</span><b>{s.pending}</b>
-            </div>
-            <div className="stat"><span className="tiny">Courses</span><b>{s.courses}</b></div>
-            <div className="stat"><span className="tiny">Enrolments</span><b>{s.enrolments}</b></div>
-            <div className="stat"><span className="tiny">Upcoming events</span><b>{s.upcomingEvents}</b></div>
-            <div className="stat"><span className="tiny">Club members</span><b>{s.clubMembers}</b></div>
-          </div>
-          <div className="panel-grid">
-            <div className="card panel">
-              <h3 className="h-card">Latest notices</h3>
-              {data.announcements.slice(0, 4).map((a) => (
-                <div key={a.id} className="list-row"><div><b>{a.title}</b><div className="meta">{a.author.name} · {fmtDate(a.createdAt)}</div></div>{a.pinned && <span className="tag" style={{ background: "var(--sun)" }}>Pinned</span>}</div>
-              ))}
-              {!data.announcements.length && <p className="muted small" style={{ margin: 0 }}>No notices yet.</p>}
-            </div>
-            <div className="card panel">
-              <h3 className="h-card">Upcoming events</h3>
-              {data.events.filter((e) => new Date(e.startsAt) > new Date()).reverse().slice(0, 4).map((e) => (
-                <div key={e.id} className="list-row"><div><b>{e.title}</b><div className="meta">{fmtDateTime(e.startsAt)} · {e.location}</div></div><span className="tiny">{e.going} going</span></div>
-              ))}
-              {!s.upcomingEvents && <p className="muted small" style={{ margin: 0 }}>No upcoming events.</p>}
-            </div>
-          </div>
-          {isAdmin && s.pending > 0 && (
-            <button className="btn btn-mint" style={{ marginTop: 16 }} onClick={() => setTab("students")}>Review {s.pending} waiting {s.pending === 1 ? "student" : "students"}</button>
-          )}
-        </>
-      )}
+      {tab === "brain" && <BrainPanel go={go} />}
+      {tab === "analytics" && <AnalyticsPanel />}
+      {tab === "market" && <MarketPanel />}
+      {tab === "crm" && <CrmPanel key={JSON.stringify(filter ?? {})} staff={data.staff} meId={data.me.id} isAdmin={isAdmin} initial={filter} />}
+      {tab === "admissions" && <AdmissionsPanel key={JSON.stringify(filter ?? {})} initial={filter} />}
+      {tab === "settings" && isAdmin && <SettingsPanel onBrandingChange={load} />}
 
       {tab === "students" && isAdmin && <VerificationQueue endpoint="/institution/verifications" embedded />}
 
@@ -229,6 +227,6 @@ export function InstitutionView() {
 
       {tab === "courses" && <CoursesPanel courses={data.courses} staff={data.staff} reload={load} />}
       {tab === "staff" && isAdmin && <StaffPanel staff={data.staff} meId={data.me.id} reload={load} />}
-    </>
+    </div>
   );
 }

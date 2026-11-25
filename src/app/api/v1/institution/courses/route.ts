@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { ApiError, body, handler, json } from "@/lib/api";
-import { found, requireStaff } from "@/lib/campus/access";
+import { CAMPUS, found, requireStaff } from "@/lib/campus/access";
 import { Prisma } from "@/generated/prisma/client";
 
 const Input = z.object({
@@ -11,7 +11,7 @@ const Input = z.object({
 });
 
 export const POST = handler(async (req) => {
-  const { institutionId } = await requireStaff();
+  const { institutionId } = await requireStaff(...CAMPUS);
   const input = await body(req, Input);
   if (input.lecturerId) {
     found(await db.institutionStaff.findFirst({ where: { userId: input.lecturerId, institutionId } }), "Lecturer");

@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { ApiError, body, handler, json } from "@/lib/api";
 import { verifyPassword } from "@/lib/auth/password";
 import { createSession } from "@/lib/auth/session";
+import { clientIp, limit } from "@/lib/rate-limit";
 
 const Login = z.object({ email: z.email().trim().toLowerCase(), password: z.string().min(1).max(200) });
 
@@ -12,6 +13,9 @@ const DUMMY_HASH =
 
 export const POST = handler(async (req) => {
   const { email, password } = await body(req, Login);
+  // Brute-force guard: per IP (spraying many accounts) and per email (one account from many IPs).
+  await limit("login:ip", clientIp(req), 30, 15 * 60);
+  await limit("login:email", email, 10, 15 * 60);
   const user = await db.user.findUnique({ where: { email } });
   const ok = await verifyPassword(password, user?.passwordHash ?? DUMMY_HASH);
   if (!user || !ok) throw new ApiError(401, "INVALID_CREDENTIALS", "Email or password is incorrect");
