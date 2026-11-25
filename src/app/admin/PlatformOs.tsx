@@ -46,8 +46,9 @@ export function PlatformOs() {
         ))}
         {!reqs.length && <p className="muted small" style={{ margin: 0 }}>No requests yet.</p>}
       </div>
-      <div className="card panel">
-        <div className="row"><h3 className="h-card">Institution OS licences</h3><input className="input" placeholder="Filter institutions" value={filter} onChange={(e) => setFilter(e.target.value)} style={{ maxWidth: 240 }} aria-label="Filter institutions" /></div>
+      <details className="card panel">
+        <summary style={{ cursor: "pointer" }}><b className="h-card">Institution OS licences</b> <span className="tiny">· {insts.length} institutions · click to manage</span></summary>
+        <div className="row" style={{ marginTop: 12 }}><span /><input className="input" placeholder="Filter institutions" value={filter} onChange={(e) => setFilter(e.target.value)} style={{ maxWidth: 240 }} aria-label="Filter institutions" /></div>
         <div style={{ overflowX: "auto" }}>
           <table className="gradebook">
             <thead><tr><th>Institution</th>{MODULES.map(([k, l]) => <th key={k}>{l}</th>)}</tr></thead>
@@ -57,7 +58,7 @@ export function PlatformOs() {
             ))}</tbody>
           </table>
         </div>
-      </div>
+      </details>
     </div>
   );
 }

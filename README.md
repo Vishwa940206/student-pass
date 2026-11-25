@@ -83,6 +83,8 @@ For local dev, set `DATABASE_URL="postgresql://postgres:postgres@localhost:54329
 
 **B2B.** The platform admin switches Institution OS modules per institution (`Institution.modules`), and the API enforces them (`requireModule`). Proposal requests from the portal's Services tab or `/for-institutions` appear in `/admin`.
 
+**Admin catalogue** (`/admin`). Onboard merchants (branches plus a till login with a one-time password, extra staff and branches later) and create or edit offers: percentage, fixed or institution-sponsored discounts, limits, districts and status. A live in-store offer must have a merchant and a discount, the same rule the till applies. `scripts/smoke-catalogue.sh` (23 checks) covers onboarding through redeeming the new offer at the new merchant's till.
+
 **Student Shop** (`/shop`). Merchants list products at student prices from `/pos` (title, category, student and usual price, stock). Verified students reserve, which holds stock for 7 days under a row lock so it can't be oversold, and get a collection code. They pay and collect at the merchant, who enters the code at `/pos`. Expired holds release their stock automatically.
 
 **Pass Points** (`/rewards`). An append-only ledger (`PointsEntry`), unique per (reason, event), so retries can't double-credit. Students earn 100 when first verified, 50 per offer redeemed at the till (reversed on refund), 1 per LKR 1,000 of fees paid (max 500 per invoice; reversed on chargeback) and 1 per LKR 100 of shop orders collected. Tiers: Mint, Green at 1,500 lifetime, Black at 4,000. Rewards are managed in `/admin`, and spending is checked under a per-student lock.

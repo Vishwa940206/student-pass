@@ -3,6 +3,7 @@ import { VerificationQueue } from "./VerificationQueue";
 import { InstitutionAccounts } from "./InstitutionAccounts";
 import { PlatformOs } from "./PlatformOs";
 import { RewardsAdmin } from "./RewardsAdmin";
+import { CatalogueAdmin } from "./CatalogueAdmin";
 
 export const metadata: Metadata = { title: "Verifications" };
 
@@ -16,6 +17,7 @@ export default function AdminPage() {
         </div>
         <VerificationQueue />
         <InstitutionAccounts />
+        <CatalogueAdmin />
         <PlatformOs />
         <RewardsAdmin />
       </section>
