@@ -44,6 +44,7 @@ model User {
   sessionsTaken    AttendanceSession[]
   invoicesCreated  Invoice[]
   paymentsRecorded Payment[]
+  listings         Listing[]
 }
 
 model Session {
@@ -148,6 +149,10 @@ model StudentProfile {
   submissions Submission[]
   invoices    Invoice[]
   chats       Conversation[]
+  points       PointsEntry[]
+  rewardsTaken RewardRedemption[]
+  reservations Reservation[]
+  responses    ListingResponse[]
 
   @@unique([institutionId, studentNumber])
 }
@@ -163,6 +168,7 @@ model Merchant {
   locations MerchantLocation[]
   staff     MerchantStaff[]
   offers    Offer[]
+  products  Product[]
 }
 
 model MerchantLocation {
@@ -712,6 +718,8 @@ model Invoice {
   createdById   String
   createdBy     User           @relation(fields: [createdById], references: [id])
   createdAt     DateTime       @default(now())
+  // Family pay link (/pay/<token>): set when the student shares the invoice; null = not shared.
+  payToken      String?        @unique
 
   payments Payment[]
 
@@ -744,6 +752,7 @@ model Payment {
   reference        String? // receipt no. / bank ref (manual) or gateway payment id
   gatewayOrderId   String?       @unique // the order_id we send to the gateway
   gatewayStatus    String? // last raw status_code from the gateway
+  payerName        String? // set when someone else paid through a family pay link
   recordedById     String? // staff who recorded a manual payment
   recordedBy       User?         @relation(fields: [recordedById], references: [id], onDelete: SetNull)
   createdAt        DateTime      @default(now())
@@ -825,4 +834,152 @@ model ProposalRequest {
   notes           String?
   status          ProposalStatus @default(NEW)
   createdAt       DateTime       @default(now())
+}
+
+// ───────────────────────── Pass Points ─────────────────────────
+// A ledger: the balance is the sum of deltas. (reason, refId) is unique, so the same event
+// can never be credited twice (e.g. a retried POS capture).
+
+enum PointsReason {
+  WELCOME // verified for the first time
+  OFFER_REDEEMED // POS capture
+  OFFER_VOIDED // POS refund reverses the credit
+  FEE_PAID // an invoice was paid
+  SHOP_COLLECTED // a shop reservation was collected
+  REWARD // spent on a reward
+  REWARD_REFUND // reward cancelled
+  ADJUSTMENT // platform admin correction
+}
+
+model PointsEntry {
+  id        String         @id @default(cuid())
+  studentId String
+  student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  delta     Int
+  reason    PointsReason
+  refId     String // id of the redemption / invoice / reservation / reward redemption
+  note      String
+  createdAt DateTime       @default(now())
+
+  @@unique([reason, refId])
+  @@index([studentId, createdAt])
+}
+
+model Reward {
+  id          String   @id @default(cuid())
+  title       String
+  description String   @default("")
+  cost        Int // points
+  stock       Int? // null = unlimited
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  redemptions RewardRedemption[]
+}
+
+enum RewardStatus {
+  ISSUED
+  USED
+  CANCELLED
+}
+
+model RewardRedemption {
+  id        String         @id @default(cuid())
+  rewardId  String
+  reward    Reward         @relation(fields: [rewardId], references: [id])
+  studentId String
+  student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  code      String         @unique // shown to the student, checked when used
+  cost      Int
+  status    RewardStatus   @default(ISSUED)
+  createdAt DateTime       @default(now())
+
+  @@index([studentId])
+}
+
+// ───────────────────────── Student Shop (reserve, pay & collect at the merchant) ─────────────────────────
+
+model Product {
+  id          String   @id @default(cuid())
+  merchantId  String
+  merchant    Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  title       String
+  category    String
+  subtitle    String   @default("")
+  description String   @default("")
+  art         String   @default("") // short display word on the card, like the design ("14\"", "CS")
+  priceCents  Int // student price
+  rrpCents    Int? // usual price
+  stock       Int? // null = unlimited
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  reservations Reservation[]
+
+  @@index([active, category])
+}
+
+enum ReservationStatus {
+  RESERVED // stock held until expiresAt
+  COLLECTED // paid and collected at the merchant
+  CANCELLED
+  EXPIRED
+}
+
+model Reservation {
+  id          String            @id @default(cuid())
+  code        String            @unique // collection code shown to the student
+  productId   String
+  product     Product           @relation(fields: [productId], references: [id])
+  studentId   String
+  student     StudentProfile    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  quantity    Int
+  priceCents  Int // unit student price at the time of reserving
+  status      ReservationStatus @default(RESERVED)
+  expiresAt   DateTime
+  collectedAt DateTime?
+  createdAt   DateTime          @default(now())
+
+  @@index([studentId, status])
+  @@index([productId, status])
+}
+
+// ───────────────────────── Jobs & housing ─────────────────────────
+
+enum ListingKind {
+  JOB
+  HOUSING
+}
+
+model Listing {
+  id            String       @id @default(cuid())
+  kind          ListingKind
+  title         String
+  organisation  String // employer or landlord shown to students
+  description   String
+  district      String
+  pay           String // "LKR 1,200 / hour", "LKR 35,000 / month"
+  postedById    String
+  postedBy      User         @relation(fields: [postedById], references: [id])
+  institutionId String? // set = only that institution's students see it
+  open          Boolean      @default(true)
+  expiresAt     DateTime?
+  createdAt     DateTime     @default(now())
+
+  responses ListingResponse[]
+
+  @@index([kind, open, createdAt])
+}
+
+model ListingResponse {
+  listingId String
+  listing   Listing        @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  studentId String
+  student   StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  message   String
+  phone     String?
+  createdAt DateTime       @default(now())
+
+  @@id([listingId, studentId])
 }

@@ -17,11 +17,19 @@ function useMe() {
   return me;
 }
 
+interface Points { balance: number; lifetime: number; tier: { name: string; next: { name: string; at: number } | null } }
+function usePoints(verified: boolean) {
+  const [p, setP] = useState<Points | null>(null);
+  useEffect(() => { if (verified) api<Points>("/rewards").then(setP).catch(() => {}); }, [verified]);
+  return p;
+}
+
 /** Hero wallet card: the signed-in student's pass, or the design's preview card. */
 export function HomeWallet() {
   const me = useMe();
   const s = me?.student;
   const verified = s?.verificationStatus === "VERIFIED";
+  const points = usePoints(verified);
   return (
     <div className="wallet-card card">
       <PassCard
@@ -32,7 +40,7 @@ export function HomeWallet() {
       />
       <div className="wc-stats">
         <a className="wc-stat" href="/preview#/app?t=pay"><span className="tiny">Wallet</span><b>Coming soon</b></a>
-        <a className="wc-stat" href="/preview#/app?t=rewards"><span className="tiny">Pass Points</span><b>Coming soon</b></a>
+        <Link className="wc-stat" href="/rewards"><span className="tiny">Pass Points{points ? ` · ${points.tier.name}` : ""}</span><b>{points ? points.balance.toLocaleString() : verified ? "…" : "Earn soon"}</b></Link>
       </div>
       {verified
         ? <Link className="btn btn-primary btn-block" href="/pass"><Icon name="i-qr" size={18} />Show my pass</Link>
@@ -64,6 +72,7 @@ export function HomeDeals() {
 export function HomeMoney() {
   const me = useMe();
   const verified = me?.student?.verificationStatus === "VERIFIED";
+  const points = usePoints(verified);
   const [due, setDue] = useState<{ item: string; amountCents: number; dueDate: string; display: string } | null | undefined>(undefined);
   useEffect(() => {
     if (!verified) return;
@@ -91,10 +100,11 @@ export function HomeMoney() {
         <a className="link-more" href="/preview#/p?id=loans">How student loans work <Icon name="i-arrow" size={16} /></a>
       </div>
       <div className="card panel reveal">
-        <span className="eyebrow">Pass Points</span>
-        <b className="big-num">Coming soon</b>
-        <span className="tiny">Earn on purchases, payments and class streaks, then redeem for perks.</span>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6 }}><a className="btn btn-ghost btn-sm" href="/preview#/p?id=rewards">How it works</a></div>
+        <span className="eyebrow">Pass Points{points ? ` · ${points.tier.name} tier` : ""}</span>
+        <b className="big-num">{points ? points.balance.toLocaleString() : "0"}</b>
+        {points?.tier.next && <div className="tier"><i style={{ width: `${Math.min(100, Math.round((points.lifetime / points.tier.next.at) * 100))}%` }} /></div>}
+        <span className="tiny">{points?.tier.next ? `${(points.tier.next.at - points.lifetime).toLocaleString()} points to ${points.tier.next.name}` : points ? "Top tier" : "Earn on offers, fees and shop orders, then redeem for perks."}</span>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6 }}><Link className="btn btn-primary btn-sm" href="/rewards">{points ? "Redeem points" : "How it works"}</Link></div>
       </div>
     </>
   );
@@ -114,4 +124,38 @@ export function HomeStats() {
     ["30s", "QR refresh, so no screenshots"],
   ];
   return <>{S4.map(([v, l]) => <div key={l} className="stat-big reveal"><b>{v}</b><span>{l}</span></div>)}</>;
+}
+
+interface ShopItem { id: string; title: string; category: string; subtitle: string; art: string; priceCents: number; rrpCents: number | null; merchant: { name: string } }
+const SHOP_COLORS: Record<string, string> = {
+  Books: "var(--lilac)", "eBooks & audio": "var(--cyan)", "Software & subscriptions": "var(--mint)", "Laptops & tech": "var(--coral)",
+  Accessories: "var(--sun)", "Stationery & study": "var(--sun)", "Room & living": "var(--lilac)", "Food & drinks": "var(--coral)",
+  "Health & care": "var(--lilac)", "Fashion & merch": "var(--cyan)", Travel: "var(--sun)", "Gift cards": "var(--mint)",
+};
+
+/** "Student prices": the newest products partner shops have listed. */
+export function HomeProducts() {
+  const [items, setItems] = useState<ShopItem[] | null>(null);
+  useEffect(() => { api<{ products: ShopItem[] }>("/shop/products").then((r) => setItems(r.products.slice(0, 8))).catch(() => setItems([])); }, []);
+  if (items && !items.length) return <p className="muted">Partner shops are adding their student prices. <Link href="/shop">Visit the shop</Link></p>;
+  return (
+    <div className="hrow">
+      {(items ?? []).map((p) => (
+        <div key={p.id} className="hrow-item">
+          <Link className="card prod hover" href="/shop" style={{ textDecoration: "none", color: "inherit" }} aria-label={`${p.title}, ${formatLkr(p.priceCents)}`}>
+            <div className="art" style={{ background: SHOP_COLORS[p.category] ?? "var(--sun)" }}><div className="shape" /><span className="big">{p.art || p.title.slice(0, 3)}</span></div>
+            <div className="bd">
+              <span className="tiny">{p.category} · {p.merchant.name}</span>
+              <b style={{ fontSize: 15, lineHeight: 1.3 }}>{p.title}</b>
+              {p.subtitle && <span className="tiny">{p.subtitle}</span>}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "auto", paddingTop: 8 }}>
+                <div className="price"><b>{formatLkr(p.priceCents)}</b>{p.rrpCents && <s>{formatLkr(p.rrpCents)}</s>}</div>
+                <span className="add" aria-hidden="true">+</span>
+              </div>
+            </div>
+          </Link>
+        </div>
+      ))}
+    </div>
+  );
 }

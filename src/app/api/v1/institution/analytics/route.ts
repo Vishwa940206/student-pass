@@ -17,6 +17,7 @@ export const GET = handler(async (req) => {
     db.lead.groupBy({ by: ["stage"], where, _count: true }),
     db.lead.groupBy({ by: ["source", "stage"], where, _count: true }),
     db.lead.groupBy({ by: ["counsellorId", "stage"], where, _count: true }),
+    // "createdAt" is UTC without a zone: read it as UTC, then convert to Sri Lanka time.
     db.$queryRaw<{ week: Date; enquiries: bigint; applications: bigint }[]>`
       WITH weeks AS (
         SELECT generate_series(date_trunc('week', now() AT TIME ZONE 'Asia/Colombo') - interval '11 weeks',
@@ -24,9 +25,9 @@ export const GET = handler(async (req) => {
       )
       SELECT w.week,
         (SELECT count(*) FROM "Lead" l WHERE l."institutionId" = ${institutionId}
-           AND date_trunc('week', l."createdAt" AT TIME ZONE 'Asia/Colombo') = w.week) AS enquiries,
+           AND date_trunc('week', (l."createdAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Colombo') = w.week) AS enquiries,
         (SELECT count(*) FROM "Application" a WHERE a."institutionId" = ${institutionId}
-           AND date_trunc('week', a."createdAt" AT TIME ZONE 'Asia/Colombo') = w.week) AS applications
+           AND date_trunc('week', (a."createdAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Colombo') = w.week) AS applications
       FROM weeks w ORDER BY w.week`,
     db.institutionStaff.findMany({ where: { institutionId }, select: { user: { select: { id: true, name: true } } } }),
     Promise.all([

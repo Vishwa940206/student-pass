@@ -101,7 +101,7 @@ export function Nav() {
             </div>
           </div>
           <Link href="/offers" aria-current={cur("/offers")}>Offers</Link>
-          <a href="/preview#/app?t=shop">Shop</a>
+          <Link href="/shop" aria-current={cur("/shop")}>Shop</Link>
           <Link href="/campus" aria-current={cur("/campus")}>Campus Life</Link>
           <Link href={role === "INSTITUTION_STAFF" ? "/institution" : "/for-institutions"} aria-current={cur("/institution") ?? cur("/for-institutions")}>Institutions</Link>
           {portal && portal[0] !== "/institution" && <Link href={portal[0]} aria-current={cur(portal[0])}>{portal[1]}</Link>}
@@ -120,8 +120,8 @@ export function Nav() {
           </button>
           {me === undefined ? null : me ? (
             <>
-              <Link className="small muted" href="/account" title="Account" style={{ fontWeight: 600, whiteSpace: "nowrap", textDecoration: "none" }}>{me.user.name.split(" ")[0]}</Link>
-              <button className="btn btn-ghost btn-sm" onClick={logout}>Sign out</button>
+              <Link className="small muted nav-user" href="/account" title="Account" style={{ fontWeight: 600, whiteSpace: "nowrap", textDecoration: "none" }}>{me.user.name.split(" ")[0]}</Link>
+              <button className="btn btn-ghost btn-sm nav-user" onClick={logout}>Sign out</button>
             </>
           ) : (
             <>
@@ -139,7 +139,7 @@ export function Nav() {
         <Link href={centre[0]} className="ab-pass" aria-current={cur(centre[0])}>
           <span className="fab"><Icon name="i-qr" size={24} /></span><span>{centre[1]}</span>
         </Link>
-        <a href="/preview#/app?t=shop"><Icon name="i-cart" size={22} /><span>Shop</span></a>
+        <Link href="/shop" aria-current={cur("/shop")}><Icon name="i-cart" size={22} /><span>Shop</span></Link>
         <button type="button" onClick={() => setMore(true)} aria-expanded={more}><Icon name="i-grid" size={22} /><span>More</span></button>
       </nav>
 

@@ -119,3 +119,6 @@ textarea.input { min-height: 96px; resize: vertical; padding-top: 14px; font: in
 .bubble.assistant { align-self: flex-start; background: var(--surface-2); border-bottom-left-radius: 6px; }
 .svc { text-align: left; cursor: pointer; font: inherit; color: inherit; border: 1px solid var(--line); }
 .svc.on { outline: 2px solid var(--brand, var(--mint)); background: color-mix(in oklab, var(--brand, var(--mint)) 14%, var(--surface)); }
+
+/* Phones: the signed-in name and Sign out live in the More sheet, so the header fits. */
+@media (max-width: 600px) { .nav-right .nav-user { display: none; } }

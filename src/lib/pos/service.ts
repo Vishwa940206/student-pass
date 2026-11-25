@@ -1,6 +1,7 @@
 import "server-only";
 import { randomBytes } from "node:crypto";
 import { db } from "@/lib/db";
+import { award, reverse, RULES } from "@/lib/points";
 import { verifyToken } from "@/lib/pass-token";
 import { startOfColomboWeek, startOfColomboYear } from "@/lib/time";
 import { evaluate, type OfferFacts, type RuleCode } from "@/lib/pos/rules";
@@ -267,7 +268,7 @@ export async function capture(staff: Staff, authorizationId: string) {
       throw new PosError("HOLD_EXPIRED", "Hold expired — scan again", 409);
     }
     await tx.authorization.update({ where: { id: a.id }, data: { status: "CAPTURED" } });
-    return tx.redemption.create({
+    const redemption = await tx.redemption.create({
       data: {
         ref: newRef(),
         authorizationId: a.id,
@@ -276,6 +277,8 @@ export async function capture(staff: Staff, authorizationId: string) {
         discountCents: a.discountCents,
       },
     });
+    await award(tx, a.studentId, "OFFER_REDEEMED", redemption.id, RULES.OFFER_REDEEMED, `Offer redeemed · ${redemption.ref}`);
+    return redemption;
   });
 }
 
@@ -306,7 +309,10 @@ export async function voidRedemption(staff: Staff, redemptionId: string, reason:
       where: { id: r.id, voidedAt: null },
       data: { voidedAt: new Date(), voidReason: reason },
     });
-    if (count) await restoreSponsorBudget(tx, r.offerId, r.discountCents);
+    if (count) {
+      await restoreSponsorBudget(tx, r.offerId, r.discountCents);
+      await reverse(tx, { reason: "OFFER_REDEEMED", refId: r.id }, "OFFER_VOIDED", r.id, `Refund · ${r.ref}`);
+    }
     return tx.redemption.findUniqueOrThrow({ where: { id: r.id } });
   });
 }

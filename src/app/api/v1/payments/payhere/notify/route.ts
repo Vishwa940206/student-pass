@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { tryDecrypt } from "@/lib/crypto";
 import { formatAmount, STATUS, verifyNotification } from "@/lib/payhere";
+import { awardFeePaid, reverse } from "@/lib/points";
 
 /**
  * PayHere server-to-server notification (application/x-www-form-urlencoded). This is the only
@@ -32,12 +33,16 @@ export async function POST(req: Request) {
     if (n.status_code === STATUS.SUCCESS) {
       if (payment.status === "SUCCEEDED") return; // retry of a notification we already applied
       await tx.payment.update({ where: { id: payment.id }, data: { ...base, status: "SUCCEEDED" } });
-      await tx.invoice.updateMany({ where: { id: payment.invoiceId, status: "DUE" }, data: { status: "PAID", paidAt: new Date() } });
+      const { count } = await tx.invoice.updateMany({ where: { id: payment.invoiceId, status: "DUE" }, data: { status: "PAID", paidAt: new Date() } });
+      if (count) await awardFeePaid(tx, payment.invoiceId);
     } else if (n.status_code === STATUS.CHARGEDBACK) {
       await tx.payment.update({ where: { id: payment.id }, data: { ...base, status: "FAILED" } });
       // Money was taken back: the invoice is owed again unless another payment covers it.
       const other = await tx.payment.count({ where: { invoiceId: payment.invoiceId, status: "SUCCEEDED", id: { not: payment.id } } });
-      if (!other) await tx.invoice.updateMany({ where: { id: payment.invoiceId, status: "PAID" }, data: { status: "DUE", paidAt: null } });
+      if (!other) {
+        await tx.invoice.updateMany({ where: { id: payment.invoiceId, status: "PAID" }, data: { status: "DUE", paidAt: null } });
+        await reverse(tx, { reason: "FEE_PAID", refId: payment.invoiceId }, "ADJUSTMENT", `chargeback:${payment.id}`, "Payment reversed by the bank");
+      }
     } else if (payment.status === "PENDING") {
       const status = n.status_code === STATUS.CANCELED ? "CANCELLED" : n.status_code === STATUS.FAILED ? "FAILED" : "PENDING";
       await tx.payment.update({ where: { id: payment.id }, data: { ...base, status } });

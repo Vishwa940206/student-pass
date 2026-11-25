@@ -2,6 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { ApiError } from "@/lib/api";
+import { award, RULES } from "@/lib/points";
 
 export const Decision = z.discriminatedUnion("decision", [
   z.object({ decision: z.literal("VERIFIED"), validUntil: z.iso.date() }),
@@ -22,6 +23,7 @@ export async function decideVerification(id: string, d: z.infer<typeof Decision>
         : { verificationStatus: "REJECTED" },
   });
   if (!count) throw new ApiError(409, "NOT_PENDING", "This student isn’t pending verification");
+  if (d.decision === "VERIFIED") await award(db, id, "WELCOME", id, RULES.WELCOME, "Welcome to Student Pass");
 }
 
 export const pendingSelect = {

@@ -101,7 +101,7 @@ export function CourseView({ id, back }: { id: string; back: () => void }) {
 
 interface FeesData {
   enabled: boolean; payOnline: boolean;
-  invoices: { id: string; number: string; item: string; amountCents: number; dueDate: string; status: string; display: string; paidAt: string | null; payments: { method: string; reference: string | null; createdAt: string }[] }[];
+  invoices: { id: string; number: string; item: string; amountCents: number; dueDate: string; status: string; display: string; paidAt: string | null; shared: boolean; payments: { method: string; reference: string | null; createdAt: string }[] }[];
 }
 
 export function FeesView() {
@@ -142,6 +142,7 @@ export function FeesView() {
               <div><b>{i.item}</b><div className="meta">{i.number} · due {fmtDate(i.dueDate)}{i.paidAt ? ` · paid ${fmtDate(i.paidAt)}` : ""}</div></div>
               <div style={{ textAlign: "right" }}><b>{formatLkr(i.amountCents)}</b><div><span className="tag" style={{ background: i.display === "PAID" ? "var(--mint)" : i.display === "OVERDUE" ? "var(--coral)" : "var(--surface-2)" }}>{i.display === "DUE" ? "To pay" : i.display.charAt(0) + i.display.slice(1).toLowerCase()}</span></div></div>
             </div>
+            {i.status === "DUE" && <FamilyLink invoiceId={i.id} shared={i.shared} onChange={load} />}
             {i.status === "DUE" && d.payOnline && (paying === i.id ? (
               <form style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }} onSubmit={(e) => { e.preventDefault(); pay(i.id, String(new FormData(e.currentTarget).get("phone") ?? "")); }}>
                 <input className="input" name="phone" type="tel" required placeholder="Mobile for the receipt" aria-label="Mobile" style={{ flex: "1 1 180px" }} />
@@ -154,5 +155,29 @@ export function FeesView() {
         {!d.payOnline && d.invoices.some((i) => i.status === "DUE") && <p className="tiny" style={{ margin: 0 }}>Pay at your institution’s finance office. Online payment isn’t set up yet.</p>}
       </div>
     </>
+  );
+}
+
+/** "Amma pays the link": share an unpaid invoice with family. */
+function FamilyLink({ invoiceId, shared, onChange }: { invoiceId: string; shared: boolean; onChange: () => void }) {
+  const [url, setUrl] = useState<string | null>(null);
+  async function share() {
+    try {
+      const r = await api<{ url: string }>(`/campus/invoices/${invoiceId}/share`, { method: "POST" });
+      setUrl(r.url);
+      if (navigator.share) await navigator.share({ title: "Student fee", text: "Could you pay my fee with this link?", url: r.url }).catch(() => {});
+      else await navigator.clipboard?.writeText(r.url).then(() => toast("Link copied. Send it on WhatsApp or SMS"));
+      if (!shared) onChange();
+    } catch (e) { toast((e as Error).message); }
+  }
+  async function stop() {
+    try { await api(`/campus/invoices/${invoiceId}/share`, { method: "DELETE" }); setUrl(null); toast("Link turned off"); onChange(); } catch (e) { toast((e as Error).message); }
+  }
+  return (
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 6 }}>
+      <button className="btn btn-ghost btn-sm" onClick={share}>{shared ? "Share link again" : "Ask family to pay"}</button>
+      {shared && <button className="btn btn-ghost btn-sm" onClick={stop}>Stop sharing</button>}
+      {url && <span className="tiny" style={{ wordBreak: "break-all" }}>{url}</span>}
+    </div>
   );
 }

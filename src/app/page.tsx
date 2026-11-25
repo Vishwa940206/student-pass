@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Icon } from "@/components/Icon";
-import { area, FAQ, FEATURED, GAINS, lkr, MOMENTS, QUICK } from "@/lib/design";
-import { HomeDeals, HomeMoney, HomeStats, HomeWallet } from "./home/HomeLive";
+import { area, FAQ, GAINS, MOMENTS, QUICK } from "@/lib/design";
+import { HomeDeals, HomeMoney, HomeProducts, HomeStats, HomeWallet } from "./home/HomeLive";
 import { HomeSearch, HomeStory } from "./home/HomeClient";
 
 /** The super-app home from the design prototype, with live data where the backend exists. */
@@ -55,25 +55,8 @@ export default function Home() {
       </section>
 
       <section>
-        <div className="row-head reveal"><h2 className="h-row">Student prices</h2><a className="link-more" href="/preview#/app?t=shop">Open the shop <Icon name="i-arrow" size={16} /></a></div>
-        <div className="hrow">
-          {FEATURED.map((p) => (
-            <div key={p.id} className="hrow-item">
-              <a className="card prod hover" href="/preview#/app?t=shop" style={{ textDecoration: "none", color: "inherit" }} aria-label={`${p.name}, ${lkr(p.price)}`}>
-                <div className="art" style={{ background: p.color }}><div className="shape" />{p.tag && <span className="tag badge" style={{ background: "#0B0B10", color: "#F5F5F7" }}>{p.tag}</span>}<span className="big">{p.big}</span></div>
-                <div className="bd">
-                  <span className="tiny">{p.cat} · {p.fmt}</span>
-                  <b style={{ fontSize: 15, lineHeight: 1.3 }}>{p.name}</b>
-                  <span className="tiny">{p.sub}</span>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "auto", paddingTop: 8 }}>
-                    <div className="price"><b>{lkr(p.price)}{p.per ?? ""}</b><s>{lkr(p.rrp)}</s></div>
-                    <span className="add" aria-hidden="true">+</span>
-                  </div>
-                </div>
-              </a>
-            </div>
-          ))}
-        </div>
+        <div className="row-head reveal"><h2 className="h-row">Student prices</h2><Link className="link-more" href="/shop">Open the shop <Icon name="i-arrow" size={16} /></Link></div>
+        <HomeProducts />
       </section>
 
       <section>

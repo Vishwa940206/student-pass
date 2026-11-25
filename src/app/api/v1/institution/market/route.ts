@@ -22,8 +22,8 @@ export const GET = handler(async () => {
     db.lead.groupBy({ by: ["district"], where: { institutionId, createdAt: recent, district: { not: null } }, _count: true, orderBy: { _count: { district: "desc" } }, take: 12 }),
     db.lead.groupBy({ by: ["source"], where: { institutionId, createdAt: recent }, _count: true }),
     db.$queryRaw<{ month: Date; programmeId: string | null; n: bigint }[]>`
-      SELECT date_trunc('month', "createdAt" AT TIME ZONE 'Asia/Colombo') AS month, "programmeId", count(*) AS n
-      FROM "Lead" WHERE "institutionId" = ${institutionId} AND "createdAt" >= now() - interval '6 months'
+      SELECT date_trunc('month', ("createdAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Colombo') AS month, "programmeId", count(*) AS n
+      FROM "Lead" WHERE "institutionId" = ${institutionId} AND "createdAt" >= (now() AT TIME ZONE 'UTC') - interval '6 months'
       GROUP BY 1, 2 ORDER BY 1`,
   ]);
 

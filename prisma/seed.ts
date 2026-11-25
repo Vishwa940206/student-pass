@@ -238,6 +238,33 @@ async function main() {
   await db.proposalRequest.deleteMany({ where: { institutionId: ic } });
   await db.proposalRequest.create({ data: { institutionId: ic, institutionName: "Inspire College", contactName: "Dilani Jayasuriya", email: "registrar@inspire-college.example", items: ["ai", "kb", "camp"], studentsBand: "500–2,000", notes: "Interested in the assistant for the January intake." } });
 
+  // ── Shop, Pass Points, listings demo ──
+  await db.reservation.deleteMany({ where: { product: { merchantId: merchant.id } } });
+  await db.product.deleteMany({ where: { merchantId: merchant.id } });
+  await db.product.createMany({ data: [
+    { merchantId: merchant.id, title: "Campus café meal plan · 10 meals", category: "Food & drinks", subtitle: "Valid 60 days at participating branches", art: "10×", priceCents: 4500_00, rrpCents: 5500_00, stock: 40 },
+    { merchantId: merchant.id, title: "Student Pass hoodie", category: "Fashion & merch", subtitle: "Heavyweight · graphite + green", art: "SP", priceCents: 5900_00, rrpCents: 6900_00, stock: 2 },
+    { merchantId: merchant.id, title: "Reusable cup + 5 refills", category: "Food & drinks", subtitle: "Bring it back for a discount", art: "Cup", priceCents: 1800_00, rrpCents: 2400_00, stock: null },
+  ] });
+  await db.rewardRedemption.deleteMany({});
+  await db.pointsEntry.deleteMany({ where: { studentId: nethmi.id } });
+  await db.reward.deleteMany({});
+  await db.reward.createMany({ data: [
+    { title: "Free regular coffee", description: "At Sandbox Café. Show the code at the counter.", cost: 300, stock: null },
+    { title: "LKR 500 shop voucher", description: "Off any Student Shop collection.", cost: 800, stock: 50 },
+  ] });
+  await db.pointsEntry.createMany({ data: [
+    { studentId: nethmi.id, reason: "WELCOME", refId: nethmi.id, delta: 100, note: "Welcome to Student Pass" },
+    { studentId: nethmi.id, reason: "ADJUSTMENT", refId: `seed:${nethmi.id}`, delta: 1140, note: "Launch bonus (demo)" },
+  ] });
+  await db.listing.deleteMany({});
+  const adminUser = await db.user.findUniqueOrThrow({ where: { email: "admin@studentpass.example" } });
+  await db.listing.createMany({ data: [
+    { kind: "JOB", title: "Part-time barista", organisation: "Sandbox Café", description: "Weekend and evening shifts near campus. Training provided.", district: "Colombo", pay: "LKR 1,200 / hour", postedById: adminUser.id },
+    { kind: "JOB", title: "Junior web developer intern", organisation: "Inspire College IT office", description: "Three-month internship building internal tools. Open to Inspire College students.", district: "Colombo", pay: "LKR 45,000 / month", postedById: registrarId, institutionId: ic },
+    { kind: "HOUSING", title: "Shared room near campus", organisation: "Private landlord", description: "Room for two in a family home, 10 minutes’ walk to campus. Meals optional.", district: "Colombo", pay: "LKR 22,000 / month", postedById: adminUser.id },
+  ] });
+
   const counts = await Promise.all([db.institution.count(), db.offer.count(), db.user.count()]);
   console.log(`Seeded: ${counts[0]} institutions, ${counts[1]} offers, ${counts[2]} users (password: ${DEV_PASSWORD})`);
 }

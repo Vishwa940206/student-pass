@@ -83,13 +83,21 @@ For local dev, set `DATABASE_URL="postgresql://postgres:postgres@localhost:54329
 
 **B2B.** The platform admin switches Institution OS modules per institution (`Institution.modules`), and the API enforces them (`requireModule`). Proposal requests from the portal's Services tab or `/for-institutions` appear in `/admin`.
 
+**Student Shop** (`/shop`). Merchants list products at student prices from `/pos` (title, category, student and usual price, stock). Verified students reserve, which holds stock for 7 days under a row lock so it can't be oversold, and get a collection code. They pay and collect at the merchant, who enters the code at `/pos`. Expired holds release their stock automatically.
+
+**Pass Points** (`/rewards`). An append-only ledger (`PointsEntry`), unique per (reason, event), so retries can't double-credit. Students earn 100 when first verified, 50 per offer redeemed at the till (reversed on refund), 1 per LKR 1,000 of fees paid (max 500 per invoice; reversed on chargeback) and 1 per LKR 100 of shop orders collected. Tiers: Mint, Green at 1,500 lifetime, Black at 4,000. Rewards are managed in `/admin`, and spending is checked under a per-student lock.
+
+**Family pay links.** Campus Life → Fees → *Ask family to pay* creates `/pay/<token>`. It shows only the invoice and the student's first name, and is paid through the institution's PayHere account (same notify path). The student can stop sharing at any time.
+
+**Jobs & housing** (`/life`). Posted at `/listings` by platform admins, institution admins (optionally for their own students only) and merchant staff. Verified students apply or enquire once per listing, and posters see the message and contact details.
+
 **Environment variables** (production): `DATABASE_URL`, `PASS_TOKEN_SECRET`, plus `SETTINGS_ENCRYPTION_KEY` (`openssl rand -base64 32`; needed to save payment secrets; don't change it once secrets are saved) and `ANTHROPIC_API_KEY` (AI assistant).
 
 **Rate limiting** (`src/lib/rate-limit.ts`) uses Postgres counters shared by all serverless instances: login 30 per 15 min per IP and 10 per 15 min per email, signup 10 per hour per IP, enquiries 5 per hour per IP and 500 per day per institution, password changes 10 per 15 min per user. The enquiry form also has a honeypot field.
 
 **Tenant isolation.** Every campus table has an `institutionId`. Handlers take it from `requireCampusStudent()` / `requireStaff()` in `src/lib/campus/access.ts`, never from the request, and include it in every query, so another institution's ids return 404. Students see Campus Life only once verified and while their pass is valid.
 
-**Tests.** Against a server on a freshly seeded **dev** database: `scripts/smoke-campus.sh` (46 checks: access rules, isolation, RSVP capacity, grading, staff lifecycle) and `scripts/smoke-os.sh` (55 checks: roles, CRM/admissions flow, isolation, branding and logo validation, public enquiries, rate limits) and `scripts/smoke-p23.sh` (64 checks: LMS, fees, PayHere signature/amount/replay/chargeback handling, AI knowledge, proposals, module licensing; start the server with `SETTINGS_ENCRYPTION_KEY` set and no `ANTHROPIC_API_KEY`).
+**Tests.** Against a server on a freshly seeded **dev** database: `scripts/smoke-campus.sh` (46 checks: access rules, isolation, RSVP capacity, grading, staff lifecycle) and `scripts/smoke-os.sh` (55 checks: roles, CRM/admissions flow, isolation, branding and logo validation, public enquiries, rate limits) `scripts/smoke-p4.sh` (57 checks: shop reserve/collect/stock, points earning and reversal, simultaneous redeems, family pay links, listings visibility) and `scripts/smoke-p23.sh` (64 checks: LMS, fees, PayHere signature/amount/replay/chargeback handling, AI knowledge, proposals, module licensing; start the server with `SETTINGS_ENCRYPTION_KEY` set and no `ANTHROPIC_API_KEY`).
 
 ## Using Supabase (hosted Postgres)
 

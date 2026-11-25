@@ -13,11 +13,13 @@ import { ApiError } from "@/lib/api";
 export async function limit(scope: string, id: string, max: number, windowSeconds: number) {
   // Hash the identifier so raw IPs and emails aren't stored.
   const key = `${scope}:${createHash("sha256").update(id).digest("base64url").slice(0, 32)}`;
+  // Timestamps are stored as UTC without a zone (Prisma's convention), so use UTC "now"
+  // explicitly: plain now() would follow the database server's time zone.
   const [row] = await db.$queryRaw<{ count: number; windowStart: Date }[]>`
-    INSERT INTO "RateLimit" ("key", "windowStart", "count") VALUES (${key}, now(), 1)
+    INSERT INTO "RateLimit" ("key", "windowStart", "count") VALUES (${key}, (now() AT TIME ZONE 'UTC'), 1)
     ON CONFLICT ("key") DO UPDATE SET
-      "count"       = CASE WHEN "RateLimit"."windowStart" < now() - make_interval(secs => ${windowSeconds}) THEN 1 ELSE "RateLimit"."count" + 1 END,
-      "windowStart" = CASE WHEN "RateLimit"."windowStart" < now() - make_interval(secs => ${windowSeconds}) THEN now() ELSE "RateLimit"."windowStart" END
+      "count"       = CASE WHEN "RateLimit"."windowStart" < (now() AT TIME ZONE 'UTC') - make_interval(secs => ${windowSeconds}) THEN 1 ELSE "RateLimit"."count" + 1 END,
+      "windowStart" = CASE WHEN "RateLimit"."windowStart" < (now() AT TIME ZONE 'UTC') - make_interval(secs => ${windowSeconds}) THEN (now() AT TIME ZONE 'UTC') ELSE "RateLimit"."windowStart" END
     RETURNING "count", "windowStart"`;
   if (row.count > max) {
     const retry = Math.max(1, Math.ceil((row.windowStart.getTime() + windowSeconds * 1000 - Date.now()) / 1000));

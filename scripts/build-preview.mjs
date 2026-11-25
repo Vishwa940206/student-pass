@@ -91,6 +91,13 @@ const LIVE_ROUTES = {
   "#/p?id=campus": "/campus",
   "#/suite": "/institution",
   "#/p?id=institutions": "/for-institutions",
+  "#/app?t=shop": "/shop",
+  "#/p?id=shop": "/shop",
+  "#/app?t=rewards": "/rewards",
+  "#/p?id=rewards": "/rewards",
+  "#/app?t=more": "/life",
+  "#/p?id=life": "/life",
+  "#/app?t=pay": "/campus?tab=fees",
 };
 swap(
   "</head>",

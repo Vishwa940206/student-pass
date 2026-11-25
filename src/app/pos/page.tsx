@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { PosTill } from "./PosTill";
+import { ShopManager } from "./ShopManager";
 
 export const metadata: Metadata = { title: "Merchant POS" };
 
@@ -12,6 +14,8 @@ export default function PosPage() {
           <p className="r">Enter the bill, scan the student’s live QR, and apply their offer. Holds expire after 5 minutes if the sale isn’t completed.</p>
         </div>
         <PosTill />
+        <ShopManager />
+        <p className="small" style={{ marginTop: 24 }}>Hiring students? <Link href="/listings">Post a job</Link>.</p>
       </section>
     </div>
   );

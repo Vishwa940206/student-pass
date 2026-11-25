@@ -1,17 +1,17 @@
 "use client";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { HERO_VIDEO } from "@/lib/design";
 
 /** Hero search: opens the Student Shop with the query (design behaviour). */
 export function HomeSearch() {
+  const router = useRouter();
   return (
     <form className="home-search" role="search" onSubmit={(e) => {
       e.preventDefault();
       const q = String(new FormData(e.currentTarget).get("q") ?? "").trim();
-      // /preview is a static design page, not a Next.js route, so this is a full page load.
-      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-      window.location.href = `/preview#/app?t=shop${q ? `&q=${encodeURIComponent(q)}` : ""}`;
+      router.push(`/shop${q ? `?q=${encodeURIComponent(q)}` : ""}`);
     }}>
       <Icon name="i-search" size={20} />
       <label className="sr" htmlFor="homeQ">Search Student Pass</label>

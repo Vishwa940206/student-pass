@@ -10,13 +10,13 @@ export const GET = handler(async () => {
     db.institution.findUniqueOrThrow({ where: { id: institutionId }, select: { modules: true, payhereMerchantId: true, payhereSecretEnc: true } }),
     db.invoice.findMany({
       where: { studentId, institutionId, status: { not: "VOID" } }, orderBy: [{ status: "asc" }, { dueDate: "asc" }],
-      select: { id: true, number: true, item: true, amountCents: true, dueDate: true, status: true, paidAt: true,
+      select: { id: true, number: true, item: true, amountCents: true, dueDate: true, status: true, paidAt: true, payToken: true,
         payments: { where: { status: "SUCCEEDED" }, select: { method: true, reference: true, createdAt: true } } },
     }),
   ]);
   return json({
     enabled: inst.modules.includes("fees"),
     payOnline: inst.modules.includes("payments") && Boolean(inst.payhereMerchantId && inst.payhereSecretEnc),
-    invoices: invoices.map((i) => ({ ...i, display: displayStatus(i) })),
+    invoices: invoices.map(({ payToken, ...i }) => ({ ...i, shared: Boolean(payToken), display: displayStatus(i) })),
   });
 });
