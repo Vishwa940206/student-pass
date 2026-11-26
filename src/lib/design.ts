@@ -3,8 +3,7 @@
 // `href` points at the live page where a feature is real, otherwise at its design screen
 // under /preview (the design's own router reads the #hash).
 
-export const HERO_VIDEO =
-  "https://d8j0ntlcm91z4.cloudfront.net/user_3Ja8NkRUwno8QbTrCfX6YzhC5W1/hf_20261119_201459_37c82222-e3b9-4b79-9167-a4b29912f7e6.mp4";
+export const HERO_VIDEO = "/video/hero.mp4"; // copy of the design's hero video (originally on a third-party CDN)
 
 export interface Area { id: string; group: "Students" | "Study & life" | "Partners"; name: string; icon: string; tint: string; one: string; href: string }
 

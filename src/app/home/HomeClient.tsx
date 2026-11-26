@@ -32,12 +32,15 @@ export function HomeStory() {
     io.observe(ref.current);
     return () => io.disconnect();
   }, []);
+  // The fade-in (.reveal → .in, added by <Reveal/>) sits on a wrapper whose class never
+  // changes: React rewrites this element's class when the video starts, which would drop "in".
   return (
-    <div ref={ref} className={`story reveal${playing ? " vid-on" : ""}`}>
+    <div className="reveal">
+    <div ref={ref} className={`story${playing ? " vid-on" : ""}`}>
       <div className="story-media kb">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/img/hero.jpg" alt="" decoding="async" />
-        {video && <video className="story-vid" src={HERO_VIDEO} muted loop playsInline autoPlay preload="none" aria-hidden="true" tabIndex={-1} onPlaying={() => setPlaying(true)} />}
+        {video && <video className="story-vid" src={HERO_VIDEO} muted loop playsInline autoPlay preload="auto" aria-hidden="true" tabIndex={-1} onPlaying={() => setPlaying(true)} />}
       </div>
       <div className="story-shade" aria-hidden="true" />
       <div className="story-copy">
@@ -48,6 +51,7 @@ export function HomeStory() {
       <span className="float-chip fc-a"><Icon name="i-check" size={16} />Weekly coffee · −LKR 950</span>
       <span className="float-chip fc-b"><Icon name="i-star" size={16} />+120 Pass Points</span>
       <span className="float-chip fc-c"><Icon name="i-card" size={16} />Semester fee paid</span>
+    </div>
     </div>
   );
 }
